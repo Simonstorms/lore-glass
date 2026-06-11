@@ -1,0 +1,11 @@
+{
+  "name": "liquid-glass",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "shadcn build"
+  },
+  "devDependencies": {
+    "shadcn": "^3.0.0"
+  }
+}

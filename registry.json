@@ -1,0 +1,64 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "liquid-glass",
+  "homepage": "https://github.com/Simonstorms/liquid-glass",
+  "items": [
+    {
+      "name": "glass",
+      "type": "registry:ui",
+      "title": "Glass",
+      "description": "A cross-browser liquid-glass lens built on SVG feDisplacementMap. Refracts a decorative layer (or a copy of your content) with edge falloff, chromatic aberration, and a baked specular highlight. Independent implementation of the displacement-map technique described in Aave Labs' 'Building Glass for the Web'.",
+      "files": [
+        {
+          "path": "registry/default/glass/glass.tsx",
+          "type": "registry:ui"
+        }
+      ],
+      "css": {
+        "@utility glass-lens": {
+          "background": "color-mix(in srgb, var(--card) 25%, transparent)",
+          "box-shadow": "inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -1px 1px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08)",
+          "-webkit-backdrop-filter": "blur(2px)",
+          "backdrop-filter": "blur(2px)"
+        },
+        "@utility lens-depth": {
+          "box-shadow": "inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1.5px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.06)"
+        },
+        "@utility glass": {
+          "background": "color-mix(in srgb, var(--card) 55%, transparent)",
+          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 9px 16px 4px rgba(0, 0, 0, 0.15)",
+          "-webkit-backdrop-filter": "blur(20px) saturate(1.6)",
+          "backdrop-filter": "blur(20px) saturate(1.6)"
+        },
+        "@utility glass-strong": {
+          "background": "color-mix(in srgb, var(--card) 70%, transparent)",
+          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 9px 16px 4px rgba(0, 0, 0, 0.15)",
+          "-webkit-backdrop-filter": "blur(60px) saturate(1.8)",
+          "backdrop-filter": "blur(60px) saturate(1.8)"
+        },
+        "@utility glass-chip": {
+          "background": "color-mix(in srgb, var(--card) 55%, transparent)",
+          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), 0 3px 6px rgba(0, 0, 0, 0.06)",
+          "-webkit-backdrop-filter": "blur(3px) saturate(1.4)",
+          "backdrop-filter": "blur(3px) saturate(1.4)"
+        }
+      }
+    },
+    {
+      "name": "glass-tabs",
+      "type": "registry:ui",
+      "title": "Glass Tabs",
+      "description": "Base UI tabs with a liquid-glass lens indicator: the active pill refracts a highlighted copy of the tab labels and glides between tabs on a spring.",
+      "dependencies": ["@base-ui/react"],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/liquid-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-tabs/glass-tabs.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    }
+  ]
+}
