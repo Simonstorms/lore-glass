@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "liquid-glass",
-  "homepage": "https://github.com/Simonstorms/liquid-glass",
+  "name": "lore-glass",
+  "homepage": "https://github.com/Simonstorms/lore-glass",
   "items": [
     {
       "name": "glass",
@@ -49,9 +49,11 @@
       "type": "registry:ui",
       "title": "Glass Tabs",
       "description": "Base UI tabs with a liquid-glass lens indicator: the active pill refracts a highlighted copy of the tab labels and glides between tabs on a spring.",
-      "dependencies": ["@base-ui/react"],
+      "dependencies": [
+        "@base-ui/react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/liquid-glass/main/public/r/glass.json"
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
       ],
       "files": [
         {

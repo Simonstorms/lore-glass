@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/liquid-glass/main/public/r/glass.json"
+    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
   ],
   "files": [
     {
