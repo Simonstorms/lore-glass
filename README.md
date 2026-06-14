@@ -1,5 +1,11 @@
 # lore-glass
 
+
+
+https://github.com/user-attachments/assets/976db622-c0fd-4309-97b4-7313346a4430
+
+
+
 Apple's Liquid Glass for React, installable with the shadcn CLI. A cross-browser lens engine built on SVG `feDisplacementMap` refracts live DOM (text stays selectable, links stay clickable), and a family of components builds the iOS interactions on top: gel presses, velocity deformation, rubber-band overdrag, spring travel.
 
 Docs and live demos: run `bun run dev`.
