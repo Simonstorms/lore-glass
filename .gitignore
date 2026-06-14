@@ -1,4 +1,14 @@
 node_modules
+dist
 .DS_Store
-bun.lock
 package-lock.json
+
+# Local-only: de-minified reference of aave.design's shipped bundles.
+# Proprietary Aave Labs code, kept for reading only. Never commit or ship.
+_reference/
+
+# Local demo video asset (not shipped)
+public/*.mp4
+
+# Remotion launch-video project (local-only, not part of the registry)
+video/

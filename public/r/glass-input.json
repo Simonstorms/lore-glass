@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "glass-input",
+  "title": "Glass Input",
+  "description": "An iOS-style search field in a liquid-glass capsule: a frosted tinted surface with a leading icon slot and a focus ring that glows in with a soft tint lift.",
+  "dependencies": [
+    "@base-ui/react"
+  ],
+  "registryDependencies": [
+    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+  ],
+  "files": [
+    {
+      "path": "registry/default/glass-input/glass-input.tsx",
+      "content": "\"use client\";\n\nimport { Input as InputPrimitive } from \"@base-ui/react/input\";\nimport {\n  GlassSurface,\n  type GlassSurfaceHandle,\n} from \"@/components/ui/glass-surface\";\nimport {\n  glassEase,\n  MotionValue,\n  PRESS_DURATION,\n  prefersReducedMotion,\n  RELEASE_DURATION,\n  tween,\n} from \"@/components/ui/glass-motion\";\nimport { cn } from \"@/lib/utils\";\nimport { type ReactNode, useCallback, useEffect, useRef } from \"react\";\n\nconst FOCUS_LIFT = 0.1;\n\ninterface GlassInputProps extends InputPrimitive.Props {\n  height?: number;\n  icon?: ReactNode;\n  inputClassName?: string;\n  tint?: number;\n  tintColor?: string;\n}\n\nfunction GlassInput({\n  height = 44,\n  icon,\n  inputClassName,\n  tint = 0.5,\n  tintColor,\n  className,\n  style,\n  onFocus,\n  onBlur,\n  ...props\n}: GlassInputProps) {\n  const surfaceHandle = useRef<GlassSurfaceHandle | null>(null);\n  const ringRef = useRef<HTMLDivElement | null>(null);\n  const focusGlow = useRef(new MotionValue(0));\n  const frame = useRef(0);\n\n  const apply = useCallback(() => {\n    frame.current = 0;\n    const v = focusGlow.current.get();\n    if (ringRef.current) {\n      ringRef.current.style.opacity = String(v);\n    }\n    surfaceHandle.current?.setTintLift(FOCUS_LIFT * v);\n  }, []);\n\n  const schedule = useCallback(() => {\n    if (frame.current === 0) {\n      frame.current = requestAnimationFrame(apply);\n    }\n  }, [apply]);\n\n  useEffect(() => {\n    const off = focusGlow.current.on(schedule);\n    return () => {\n      off();\n      cancelAnimationFrame(frame.current);\n    };\n  }, [schedule]);\n\n  return (\n    <label\n      className={cn(\"relative inline-flex w-64 items-center\", className)}\n      style={{ height, borderRadius: height / 2, ...style }}\n    >\n      <GlassSurface\n        aria-hidden=\"true\"\n        blur={10}\n        className=\"absolute inset-0\"\n        handleRef={surfaceHandle}\n        radius={height / 2}\n        tint={tint}\n        tintColor={tintColor}\n      />\n      <div\n        aria-hidden=\"true\"\n        className=\"pointer-events-none absolute inset-0 rounded-[inherit]\"\n        ref={ringRef}\n        style={{\n          opacity: 0,\n          boxShadow:\n            \"0 0 0 2px rgba(152,150,255,0.7), inset 0 1px 0 0 rgba(255,255,255,0.5)\",\n        }}\n      />\n      {icon ? (\n        <span className=\"relative z-10 ml-4 inline-flex shrink-0 items-center justify-center text-[#1d1d1f]/55 dark:text-[#f5f5f7]/55 [&_svg]:size-[18px]\">\n          {icon}\n        </span>\n      ) : null}\n      <InputPrimitive\n        className={cn(\n          \"relative z-10 h-full w-full min-w-0 rounded-[inherit] bg-transparent text-[#1d1d1f] text-[15px] outline-none placeholder:text-[#1d1d1f]/45 dark:text-[#f5f5f7] dark:placeholder:text-[#f5f5f7]/45\",\n          icon ? \"pr-4 pl-2.5\" : \"px-4\",\n          inputClassName\n        )}\n        onBlur={(e) => {\n          const d = prefersReducedMotion() ? 0 : RELEASE_DURATION;\n          tween(focusGlow.current, 0, d, glassEase);\n          onBlur?.(e);\n        }}\n        onFocus={(e) => {\n          const d = prefersReducedMotion() ? 0 : PRESS_DURATION;\n          tween(focusGlow.current, 1, d, glassEase);\n          onFocus?.(e);\n        }}\n        {...props}\n      />\n    </label>\n  );\n}\n\nexport { GlassInput };\nexport type { GlassInputProps };\n",
+      "type": "registry:ui"
+    }
+  ],
+  "type": "registry:ui"
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "glass-popover",
+  "title": "Glass Popover",
+  "description": "An iOS-style liquid-glass context menu on Base UI Menu: a frosted, tinted panel that blurs the page behind it, with icon, label, and sublabel rows, hairline separators, keyboard navigation, and a gel scale-in.",
+  "dependencies": [
+    "@base-ui/react"
+  ],
+  "registryDependencies": [
+    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+  ],
+  "files": [
+    {
+      "path": "registry/default/glass-popover/glass-popover.tsx",
+      "content": "\"use client\";\n\nimport { Menu as MenuPrimitive } from \"@base-ui/react/menu\";\nimport { GlassSurface } from \"@/components/ui/glass-surface\";\nimport { cn } from \"@/lib/utils\";\nimport type { ReactNode } from \"react\";\n\nconst GlassPopover = MenuPrimitive.Root;\nconst GlassPopoverTrigger = MenuPrimitive.Trigger;\n\ninterface GlassPopoverContentProps extends MenuPrimitive.Popup.Props {\n  align?: MenuPrimitive.Positioner.Props[\"align\"];\n  side?: MenuPrimitive.Positioner.Props[\"side\"];\n  sideOffset?: number;\n  tint?: number;\n  tintColor?: string;\n}\n\nfunction GlassPopoverContent({\n  align = \"start\",\n  side = \"bottom\",\n  sideOffset = 10,\n  tint = 0.55,\n  tintColor,\n  className,\n  children,\n  ...props\n}: GlassPopoverContentProps) {\n  return (\n    <MenuPrimitive.Portal>\n      <MenuPrimitive.Positioner\n        align={align}\n        className=\"z-50 outline-none\"\n        side={side}\n        sideOffset={sideOffset}\n      >\n        <MenuPrimitive.Popup\n          className={cn(\n            \"origin-[var(--transform-origin)] outline-none transition-[scale,opacity] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[ending-style]:ease-out data-[starting-style]:scale-[0.6]\",\n            className\n          )}\n          {...props}\n        >\n          <GlassSurface\n            blur={30}\n            radius={26}\n            tint={tint}\n            tintColor={tintColor}\n          >\n            <div className=\"min-w-[230px] py-2.5\">{children}</div>\n          </GlassSurface>\n        </MenuPrimitive.Popup>\n      </MenuPrimitive.Positioner>\n    </MenuPrimitive.Portal>\n  );\n}\n\ninterface GlassPopoverItemProps extends MenuPrimitive.Item.Props {\n  destructive?: boolean;\n  icon?: ReactNode;\n  label: string;\n  sublabel?: string;\n}\n\nfunction GlassPopoverItem({\n  destructive = false,\n  icon,\n  label,\n  sublabel,\n  className,\n  ...props\n}: GlassPopoverItemProps) {\n  return (\n    <MenuPrimitive.Item\n      className={cn(\n        \"mx-2.5 flex cursor-pointer select-none items-center gap-4 rounded-[14px] px-3 py-2.5 text-[#1d1d1f] outline-none data-[highlighted]:bg-black/8 dark:text-[#f5f5f7] dark:data-[highlighted]:bg-white/12\",\n        destructive && \"text-[#e5484d] dark:text-[#ff6369]\",\n        className\n      )}\n      label={label}\n      {...props}\n    >\n      {icon ? (\n        <span className=\"inline-flex w-6 shrink-0 items-center justify-center [&_svg]:size-5\">\n          {icon}\n        </span>\n      ) : null}\n      <span className=\"flex min-w-0 flex-col gap-0.5\">\n        <span className=\"truncate text-[16px] leading-tight\">{label}</span>\n        {sublabel ? (\n          <span className=\"truncate text-[13px] leading-tight opacity-55\">\n            {sublabel}\n          </span>\n        ) : null}\n      </span>\n    </MenuPrimitive.Item>\n  );\n}\n\nfunction GlassPopoverSeparator({\n  className,\n  ...props\n}: MenuPrimitive.Separator.Props) {\n  return (\n    <MenuPrimitive.Separator\n      className={cn(\"mx-5 my-2 h-px bg-black/10 dark:bg-white/12\", className)}\n      {...props}\n    />\n  );\n}\n\nexport {\n  GlassPopover,\n  GlassPopoverContent,\n  GlassPopoverItem,\n  GlassPopoverSeparator,\n  GlassPopoverTrigger,\n};\nexport type { GlassPopoverContentProps, GlassPopoverItemProps };\n",
+      "type": "registry:ui"
+    }
+  ],
+  "type": "registry:ui"
+}

@@ -7,48 +7,61 @@
       "name": "glass",
       "type": "registry:ui",
       "title": "Glass",
-      "description": "A cross-browser liquid-glass lens built on SVG feDisplacementMap. Refracts a decorative layer (or a copy of your content) with edge falloff, chromatic aberration, and a baked specular highlight. Independent implementation of the displacement-map technique described in Aave Labs' 'Building Glass for the Web'.",
+      "description": "A cross-browser liquid-glass lens engine built on SVG feDisplacementMap. Refracts live DOM content through movable lens regions with a circle-profile bezel, dome bulge, chromatic aberration, and baked specular highlights. Ships with a dependency-free motion core (overshoot tweens, springs, rubber-band) for gel-like interactions. Independent implementation of the displacement-map technique described in Aave Labs' 'Building Glass for the Web'.",
       "files": [
         {
           "path": "registry/default/glass/glass.tsx",
           "type": "registry:ui"
+        },
+        {
+          "path": "registry/default/glass/glass-motion.ts",
+          "type": "registry:ui"
+        },
+        {
+          "path": "registry/default/glass/glass-surface.tsx",
+          "type": "registry:ui"
+        },
+        {
+          "path": "registry/default/glass/glass-webgl.ts",
+          "type": "registry:ui"
         }
+      ]
+    },
+    {
+      "name": "glass-switch",
+      "type": "registry:ui",
+      "title": "Glass Switch",
+      "description": "An iOS-style liquid-glass switch: the thumb rests as an opaque platter and lifts into a clear warping lens on press, with velocity-driven gel deformation, rubber-band overdrag, and overshoot travel tweens.",
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
       ],
-      "css": {
-        "@utility glass-lens": {
-          "background": "color-mix(in srgb, var(--card) 25%, transparent)",
-          "box-shadow": "inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -1px 1px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08)",
-          "-webkit-backdrop-filter": "blur(2px)",
-          "backdrop-filter": "blur(2px)"
-        },
-        "@utility lens-depth": {
-          "box-shadow": "inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1.5px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.06)"
-        },
-        "@utility glass": {
-          "background": "color-mix(in srgb, var(--card) 55%, transparent)",
-          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 9px 16px 4px rgba(0, 0, 0, 0.15)",
-          "-webkit-backdrop-filter": "blur(20px) saturate(1.6)",
-          "backdrop-filter": "blur(20px) saturate(1.6)"
-        },
-        "@utility glass-strong": {
-          "background": "color-mix(in srgb, var(--card) 70%, transparent)",
-          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 9px 16px 4px rgba(0, 0, 0, 0.15)",
-          "-webkit-backdrop-filter": "blur(60px) saturate(1.8)",
-          "backdrop-filter": "blur(60px) saturate(1.8)"
-        },
-        "@utility glass-chip": {
-          "background": "color-mix(in srgb, var(--card) 55%, transparent)",
-          "box-shadow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), 0 3px 6px rgba(0, 0, 0, 0.06)",
-          "-webkit-backdrop-filter": "blur(3px) saturate(1.4)",
-          "backdrop-filter": "blur(3px) saturate(1.4)"
+      "files": [
+        {
+          "path": "registry/default/glass-switch/glass-switch.tsx",
+          "type": "registry:ui"
         }
-      }
+      ]
+    },
+    {
+      "name": "glass-slider",
+      "type": "registry:ui",
+      "title": "Glass Slider",
+      "description": "A liquid-glass slider with a native range input back-sync: the handle lifts into a refracting lens while dragging, keeping the fill value readable through the glass, and settles back to a solid platter on release.",
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-slider/glass-slider.tsx",
+          "type": "registry:ui"
+        }
+      ]
     },
     {
       "name": "glass-tabs",
       "type": "registry:ui",
       "title": "Glass Tabs",
-      "description": "Base UI tabs with a liquid-glass lens indicator: the active pill refracts a highlighted copy of the tab labels and glides between tabs on a spring.",
+      "description": "Base UI tabs with a liquid-glass selection indicator: a spring-driven lens glides between options, deforming like a droplet with velocity and refracting the highlighted option beneath it.",
       "dependencies": [
         "@base-ui/react"
       ],
@@ -58,6 +71,93 @@
       "files": [
         {
           "path": "registry/default/glass-tabs/glass-tabs.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
+      "name": "glass-button",
+      "type": "registry:ui",
+      "title": "Glass Button",
+      "description": "An iOS-style liquid-glass button: a circular icon disc or text capsule on a frosted glass surface, with a velocity-eased press gel that squeezes the button and clears the tint while held.",
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-button/glass-button.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
+      "name": "glass-popover",
+      "type": "registry:ui",
+      "title": "Glass Popover",
+      "description": "An iOS-style liquid-glass context menu on Base UI Menu: a frosted, tinted panel that blurs the page behind it, with icon, label, and sublabel rows, hairline separators, keyboard navigation, and a gel scale-in.",
+      "dependencies": [
+        "@base-ui/react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-popover/glass-popover.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
+      "name": "glass-dialog",
+      "type": "registry:ui",
+      "title": "Glass Dialog",
+      "description": "A modal liquid-glass dialog on Base UI Dialog: a blurred scrim, a frosted tinted glass panel that scales into place, and accessible title, description, and close parts.",
+      "dependencies": [
+        "@base-ui/react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-dialog/glass-dialog.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
+      "name": "glass-tooltip",
+      "type": "registry:ui",
+      "title": "Glass Tooltip",
+      "description": "A liquid-glass tooltip chip on Base UI Tooltip with provider-based delay grouping: a small frosted capsule that scales in from its anchor and stays legible over any content.",
+      "dependencies": [
+        "@base-ui/react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-tooltip/glass-tooltip.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
+      "name": "glass-input",
+      "type": "registry:ui",
+      "title": "Glass Input",
+      "description": "An iOS-style search field in a liquid-glass capsule: a frosted tinted surface with a leading icon slot and a focus ring that glows in with a soft tint lift.",
+      "dependencies": [
+        "@base-ui/react"
+      ],
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-input/glass-input.tsx",
           "type": "registry:ui"
         }
       ]

@@ -1,20 +1,29 @@
 "use client";
 
+import {
+  GlassWebGLRenderer,
+  isRasterChild,
+  webglAvailable,
+} from "@/components/ui/glass-webgl";
 import { cn } from "@/lib/utils";
 import {
   type ComponentProps,
   type ReactNode,
+  type RefObject,
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
 } from "react";
 
-const MAP_SIZE = 128;
-const SQRT_PI = 1.772_453_850_9;
+const SLOTS = 5;
+const MAP_CACHE_LIMIT = 64;
+const EDGE_BIAS = 0.5;
 
 interface MapParams {
   depth: number;
+  domeDepth: number;
   edgeExponent: number;
   edgeStrength: number;
   edgeWidth: number;
@@ -24,396 +33,1270 @@ interface MapParams {
   halfH: number;
   halfW: number;
   radius: number;
+  size: number;
+  splay: number;
   specularAngle: number;
+  sdfBoundary?: boolean;
+  edgeFalloff?: boolean;
 }
 
-function roundedBoxSdf(
-  ax: number,
-  ay: number,
+interface GlassDynamics {
+  zoom?: number;
+  depthMul?: number;
+  mapDims?: { halfW: number; halfH: number; radius: number };
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function erf(x: number): number {
+  return Math.tanh(1.7724538509 * x);
+}
+
+function sphereAvgSlope(r: number, halfDim: number): number {
+  let sum = 0;
+  for (let i = 0; i <= 200; i++) {
+    const a = (i / 200) * halfDim;
+    const s = a / Math.sqrt(r * r - a * a);
+    sum += i === 0 || i === 200 ? 0.5 * s : s;
+  }
+  return sum / 200;
+}
+
+interface DomeConstants {
+  rx: number;
+  ry: number;
+  scaleX: number;
+  scaleY: number;
+}
+
+function computeDomeConstants(
+  domeDepth: number,
   halfW: number,
-  halfH: number,
-  r: number
-): number {
-  const dx = ax - halfW + r;
-  const dy = ay - halfH + r;
-  const ux = Math.max(dx, 0);
-  const uy = Math.max(dy, 0);
-  return Math.hypot(ux, uy) + Math.min(Math.max(dx, dy), 0) - r;
+  halfH: number
+): DomeConstants {
+  const h = Math.max(0.01, Math.min(domeDepth, Math.min(halfW, halfH) - 1));
+  const rx = (halfW * halfW + h * h) / (2 * h);
+  const ry = (halfH * halfH + h * h) / (2 * h);
+  const ax = sphereAvgSlope(rx, halfW);
+  const ay = sphereAvgSlope(ry, halfH);
+  return {
+    rx,
+    ry,
+    scaleX: ax > 0 ? 0.5 / ax : 1,
+    scaleY: ay > 0 ? 0.5 / ay : 1,
+  };
 }
 
-function specularField(
-  d: number,
-  falloff: number,
-  sdf: number,
-  p: MapParams,
-  spreadStart: number,
-  spreadRange: number
-): number {
-  let v = 0;
-  if (p.glowStrength > 0 && spreadRange > 0.001) {
-    const t = Math.min(1, Math.max(0, (d - spreadStart) / spreadRange));
-    v += p.glowStrength * t ** p.glowExponent * falloff;
-  }
-  if (p.edgeStrength > 0) {
-    const rim = sdf < 0 ? Math.max(0, 1 + sdf / p.edgeWidth) : 0;
-    v += p.edgeStrength * rim * d ** p.edgeExponent;
-  }
-  return Math.min(1, v);
+function domeGradient(p: number, r: number, scale: number): number {
+  const c = Math.min(p, 0.999 * r);
+  return (c / Math.sqrt(r * r - c * c)) * scale;
 }
 
 function generateLensMap(p: MapParams): string | null {
-  if (p.halfW < 4 || p.halfH < 4) {
+  if (p.halfW < 2 || p.halfH < 2) {
     return null;
   }
+  const sdfBoundary = p.sdfBoundary ?? true;
+  const edgeFalloff = p.edgeFalloff ?? true;
+  const size = p.size;
   const canvas = document.createElement("canvas");
-  canvas.width = MAP_SIZE;
-  canvas.height = MAP_SIZE;
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return null;
   }
-  const image = ctx.createImageData(MAP_SIZE, MAP_SIZE);
+  const image = ctx.createImageData(size, size);
   const data = image.data;
+  const half = size >> 1;
   const r0 = Math.min(p.radius, p.halfW, p.halfH);
-  const innerW = Math.max(p.halfW - p.depth, 0);
-  const innerH = Math.max(p.halfH - p.depth, 0);
-  const innerR = Math.min(r0, innerW, innerH);
-  const invSigma = p.depth > 0 ? 1 / (p.depth * Math.SQRT2) : 1e6;
+  const innerHalfW = Math.max(0, p.halfW - p.depth);
+  const innerHalfH = Math.max(0, p.halfH - p.depth);
+  const innerR = Math.max(0, Math.min(p.radius, Math.min(innerHalfW, innerHalfH)));
+  const falloffInv = p.depth > 0 ? 1 / (p.depth * Math.SQRT2) : 1e6;
+  const specOn = p.glowStrength > 0 || p.edgeStrength > 0;
   const theta = (p.specularAngle * Math.PI) / 180;
   const cosT = Math.cos(theta);
   const sinT = Math.sin(theta);
   const spreadStart = (1 - p.glowSpread) * Math.SQRT2;
   const spreadRange = p.glowSpread * Math.SQRT2;
-  const half = MAP_SIZE / 2;
-  const stepX = (2 * p.halfW) / MAP_SIZE;
-  const stepY = (2 * p.halfH) / MAP_SIZE;
-  const write = (
-    col: number,
-    row: number,
-    rv: number,
-    gv: number,
-    bv: number
-  ) => {
-    const i = (row * MAP_SIZE + col) * 4;
-    data[i] = rv;
-    data[i + 1] = gv;
-    data[i + 2] = bv;
-    data[i + 3] = 255;
-  };
-  for (let row = 0; row < half; row++) {
-    const py = p.halfH - (row + 0.5) * stepY;
+  const spreadInv = spreadRange > 0.001 ? 1 / spreadRange : 0;
+  const edgeWInv = p.edgeWidth > 0 ? 1 / p.edgeWidth : 0;
+  const stepX = (2 * p.halfW) / size;
+  const stepY = (2 * p.halfH) / size;
+  const invW = 1 / p.halfW;
+  const invH = 1 / p.halfH;
+  const dome = p.domeDepth > 0;
+  const splaying = p.splay < 1;
+  const proxHalf = 0.5 * Math.min(p.halfW, p.halfH);
+  const proxInv = proxHalf > 0 ? 1 / proxHalf : 0;
+  let colSlope: Float32Array | null = null;
+  let domeRy = 0;
+  let domeScaleY = 0;
+  if (dome) {
+    const dc = computeDomeConstants(p.domeDepth, p.halfW, p.halfH);
+    domeRy = dc.ry;
+    domeScaleY = dc.scaleY;
+    colSlope = new Float32Array(half);
+    const lim = 0.999 * dc.rx;
     for (let col = 0; col < half; col++) {
       const px = p.halfW - (col + 0.5) * stepX;
-      const mc = MAP_SIZE - 1 - col;
-      const mr = MAP_SIZE - 1 - row;
-      const sdf = roundedBoxSdf(px, py, p.halfW, p.halfH, r0);
-      if (sdf >= 0) {
-        write(col, row, 128, 128, 128);
-        write(mc, row, 128, 128, 128);
-        write(col, mr, 128, 128, 128);
-        write(mc, mr, 128, 128, 128);
+      const s = px < lim ? px : lim;
+      colSlope[col] = (s / Math.sqrt(dc.rx * dc.rx - s * s)) * dc.scaleX;
+    }
+  }
+  for (let row = 0; row < half; row++) {
+    const py = p.halfH - (row + 0.5) * stepY;
+    const cornerDy = py - p.halfH + r0;
+    const innerDy = py - innerHalfH + innerR;
+    const yLin = Math.min(py * invH, 1);
+    const domeY = dome ? domeGradient(py, domeRy, domeScaleY) : yLin;
+    const proxY = splaying ? Math.max(0, 1 - (p.halfH - py) * proxInv) : 0;
+    const mr = size - 1 - row;
+    for (let col = 0; col < half; col++) {
+      const px = p.halfW - (col + 0.5) * stepX;
+      const mc = size - 1 - col;
+      const cornerDx = px - p.halfW + r0;
+      const ux = Math.max(cornerDx, 0);
+      const uy = Math.max(cornerDy, 0);
+      const sd =
+        Math.hypot(ux, uy) + Math.min(Math.max(cornerDx, cornerDy), 0) - r0;
+      const i00 = (row * size + col) * 4;
+      const i10 = (row * size + mc) * 4;
+      const i01 = (mr * size + col) * 4;
+      const i11 = (mr * size + mc) * 4;
+      if (sdfBoundary && sd >= 0) {
+        for (const i of [i00, i10, i01, i11]) {
+          data[i] = 128;
+          data[i + 1] = 128;
+          data[i + 2] = 128;
+          data[i + 3] = 255;
+        }
         continue;
       }
-      const xN = Math.min(px / p.halfW, 1);
-      const yN = Math.min(py / p.halfH, 1);
-      const innerSdf = roundedBoxSdf(px, py, innerW, innerH, innerR);
-      const f = 0.5 * (1 + Math.tanh(SQRT_PI * innerSdf * invSigma));
-      const rv = Math.round((0.5 + 0.5 * xN * f) * 255);
-      const gv = Math.round((0.5 + 0.5 * yN * f) * 255);
-      const a = xN * cosT;
-      const b = yN * sinT;
-      const b1 = Math.round(
-        127 *
-          specularField(Math.abs(a + b), f, sdf, p, spreadStart, spreadRange) +
-          128
-      );
-      const b2 = Math.round(
-        127 *
-          specularField(Math.abs(a - b), f, sdf, p, spreadStart, spreadRange) +
-          128
-      );
-      write(col, row, rv, gv, b1);
-      write(mc, row, 255 - rv, gv, b2);
-      write(col, mr, rv, 255 - gv, b2);
-      write(mc, mr, 255 - rv, 255 - gv, b1);
+      let dx = colSlope ? colSlope[col] : Math.min(px * invW, 1);
+      let dy = domeY;
+      if (splaying) {
+        const k = 1 - p.splay;
+        const ty = proxY * k;
+        const tx = Math.max(0, 1 - (p.halfW - px) * proxInv) * k;
+        if (tx > 0.001 || ty > 0.001) {
+          const ox = dx;
+          const oy = dy;
+          dx = ox * (1 - ty);
+          dy = oy * (1 - tx);
+          const before = Math.hypot(ox, oy);
+          const after = Math.hypot(dx, dy);
+          if (after > 0.001) {
+            const f = before / after;
+            dx *= f;
+            dy *= f;
+          }
+        }
+      }
+      let gate = 1;
+      if (edgeFalloff) {
+        const innerDx = px - innerHalfW + innerR;
+        const iux = Math.max(innerDx, 0);
+        const iuy = Math.max(innerDy, 0);
+        const isd =
+          Math.hypot(iux, iuy) +
+          Math.min(Math.max(innerDx, innerDy), 0) -
+          innerR;
+        gate = 0.5 * (1 + erf(isd * falloffInv));
+      }
+      const hx = 0.5 * dx * gate;
+      const hy = 0.5 * dy * gate;
+      const rPos = ((0.5 + hx) * 255 + 0.5) | 0;
+      const rNeg = ((0.5 - hx) * 255 + 0.5) | 0;
+      const gPos = ((0.5 + hy) * 255 + 0.5) | 0;
+      const gNeg = ((0.5 - hy) * 255 + 0.5) | 0;
+      let b1 = 128;
+      let b2 = 128;
+      if (specOn) {
+        const sa = Math.min(px * invW, 1) * cosT;
+        const sb = yLin * sinT;
+        const f1 = Math.abs(sa + sb);
+        const f2 = Math.abs(sa - sb);
+        let s1 = 0;
+        let s2 = 0;
+        if (p.glowStrength > 0) {
+          s1 +=
+            p.glowStrength *
+            clamp01((f1 - spreadStart) * spreadInv) ** p.glowExponent *
+            gate;
+          s2 +=
+            p.glowStrength *
+            clamp01((f2 - spreadStart) * spreadInv) ** p.glowExponent *
+            gate;
+        }
+        if (p.edgeStrength > 0) {
+          const rim = sd < 0 ? Math.max(0, 1 + sd * edgeWInv) : 0;
+          s1 += p.edgeStrength * rim * f1 ** p.edgeExponent;
+          s2 += p.edgeStrength * rim * f2 ** p.edgeExponent;
+        }
+        if (s1 > 1) {
+          s1 = 1;
+        }
+        if (s2 > 1) {
+          s2 = 1;
+        }
+        b1 = (127 * s1 + 128 + 0.5) | 0;
+        b2 = (127 * s2 + 128 + 0.5) | 0;
+      }
+      data[i00] = rPos;
+      data[i00 + 1] = gPos;
+      data[i00 + 2] = b1;
+      data[i00 + 3] = 255;
+      data[i10] = rNeg;
+      data[i10 + 1] = gPos;
+      data[i10 + 2] = b2;
+      data[i10 + 3] = 255;
+      data[i01] = rPos;
+      data[i01 + 1] = gNeg;
+      data[i01 + 2] = b2;
+      data[i01 + 3] = 255;
+      data[i11] = rNeg;
+      data[i11 + 1] = gNeg;
+      data[i11 + 2] = b1;
+      data[i11 + 3] = 255;
     }
   }
   ctx.putImageData(image, 0, 0);
   return canvas.toDataURL("image/png");
 }
 
+const maskCache = new Map<string, string>();
+
+function roundedMaskHref(
+  w: number,
+  h: number,
+  rx: number,
+  ry: number
+): string {
+  const cw = Math.max(1, Math.round(w));
+  const ch = Math.max(1, Math.round(h));
+  const crx = Math.max(0, Math.min(rx, cw / 2));
+  const cry = Math.max(0, Math.min(ry, ch / 2));
+  const key = `${cw}|${ch}|${crx}|${cry}`;
+  const cached = maskCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return "";
+  }
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.roundRect(0, 0, cw, ch, [{ x: crx, y: cry }]);
+  ctx.fill();
+  const url = canvas.toDataURL();
+  maskCache.set(key, url);
+  if (maskCache.size > MAP_CACHE_LIMIT) {
+    const first = maskCache.keys().next().value;
+    if (first !== undefined) {
+      maskCache.delete(first);
+    }
+  }
+  return url;
+}
+
+let emptyHref: string | null = null;
+
+function placeholderHref(): string {
+  if (emptyHref === null && typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    emptyHref = canvas.toDataURL();
+  }
+  return emptyHref ?? "";
+}
+
+const isWebKitOnly =
+  typeof navigator !== "undefined" &&
+  /AppleWebKit/.test(navigator.userAgent) &&
+  !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg|OPR|Firefox)/.test(
+    navigator.userAgent
+  );
+
+function isSafariBrowser(): boolean {
+  return isWebKitOnly;
+}
+
+function readForcedRenderer(): "webgl" | "svg" | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const query = new URLSearchParams(window.location.search).get(
+      "glassRenderer"
+    );
+    if (query === "webgl" || query === "svg") {
+      return query;
+    }
+    const flag = (window as unknown as { __GLASS_RENDERER__?: string })
+      .__GLASS_RENDERER__;
+    if (flag === "webgl" || flag === "svg") {
+      return flag;
+    }
+    const stored = window.localStorage?.getItem("glassRenderer");
+    if (stored === "webgl" || stored === "svg") {
+      return stored;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+const forcedRenderer = readForcedRenderer();
+
+function useGlassDark(): boolean {
+  const [dark, setDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return dark;
+}
+
 interface GlassProps extends ComponentProps<"div"> {
   blur?: number;
-  brightness?: number;
   chroma?: number;
   depth?: number;
+  domeDepth?: number;
+  dynamicsRef?: RefObject<GlassDynamics | null>;
   edgeExponent?: number;
+  edgeFalloff?: boolean;
   edgeHighlight?: number;
   edgeWidth?: number;
   glow?: number;
   glowExponent?: number;
   glowSpread?: number;
-  lensRadius?: number;
-  refraction?: ReactNode;
+  lens: ReactNode;
+  mapSize?: number;
+  maxDisplacement?: number;
+  resolution?: number;
+  reveal?: boolean;
+  scaleX?: number;
+  scaleY?: number;
+  sdfBoundary?: boolean;
+  splay?: number;
   specularAngle?: number;
+  specularDark?: boolean;
   specularStrength?: number;
-  strength?: number;
+  tint?: number;
+  tintBlur?: number;
+  tintColor?: string;
 }
 
-interface LensState {
-  height: number;
-  key: number;
-  url: string;
-  width: number;
+interface SlotEls {
+  feImage: SVGFEImageElement | null;
+  feScale: SVGFEColorMatrixElement | null;
+  feFlood: SVGFEFloodElement | null;
+  feMask: SVGFEImageElement | null;
+  backdrop: HTMLDivElement | null;
+  hrefInit: boolean;
+  lastKey: string;
+  lastMaskKey: string;
+  lastMatrix: string;
+  lastX: string;
+  lastY: string;
+  lastW: string;
+  lastH: string;
+  lastWidth: number;
+  lastHeight: number;
+  lastRadius: number;
+  lastBackdrop: string;
+  prevW: number;
+  prevH: number;
 }
 
-const DEFAULT_REFRACTION_FILL =
-  "radial-gradient(120% 120% at 50% 30%, rgba(255,255,255,0) 55%, rgba(255,255,255,0.35) 95%)";
+function makeSlot(): SlotEls {
+  return {
+    feImage: null,
+    feScale: null,
+    feFlood: null,
+    feMask: null,
+    backdrop: null,
+    hrefInit: false,
+    lastKey: "",
+    lastMaskKey: "",
+    lastMatrix: "",
+    lastX: "",
+    lastY: "",
+    lastW: "",
+    lastH: "",
+    lastWidth: 0,
+    lastHeight: 0,
+    lastRadius: 0,
+    lastBackdrop: "",
+    prevW: 0,
+    prevH: 0,
+  };
+}
+
+interface EngineParams {
+  depth: number;
+  domeDepth: number;
+  splay: number;
+  specularAngle: number;
+  specularStrength: number;
+  specularDark: boolean;
+  glow: number;
+  glowSpread: number;
+  glowExponent: number;
+  edgeHighlight: number;
+  edgeWidth: number;
+  edgeExponent: number;
+  mapSize: number;
+  scaleMax: number;
+  maxDisplacement: number;
+  chroma: number;
+  blur: number;
+  sdfBoundary: boolean;
+  edgeFalloff: boolean;
+  kx: number;
+  ky: number;
+  resolution: number;
+  tint: number;
+  tintBlur: number;
+  tintRGB: string;
+}
+
+const OVERRIDE_KEYS = [
+  "depth",
+  "domeDepth",
+  "splay",
+  "specularAngle",
+  "glow",
+  "glowSpread",
+  "glowExponent",
+  "edgeHighlight",
+  "edgeWidth",
+  "edgeExponent",
+] as const;
+
+type OverrideKey = (typeof OVERRIDE_KEYS)[number];
+
+function markOverrides(
+  mark: HTMLElement
+): Partial<Record<OverrideKey, number>> & { mul: number } {
+  const out: Partial<Record<OverrideKey, number>> & { mul: number } = {
+    mul: 1,
+  };
+  for (const key of OVERRIDE_KEYS) {
+    const raw = mark.dataset[`glass${key[0].toUpperCase()}${key.slice(1)}`];
+    if (raw !== undefined) {
+      const v = Number(raw);
+      if (!Number.isNaN(v)) {
+        out[key] = v;
+      }
+    }
+  }
+  const mulRaw = mark.dataset.glassMul;
+  if (mulRaw !== undefined) {
+    const v = Number(mulRaw);
+    if (!Number.isNaN(v)) {
+      out.mul = clamp01(v);
+    }
+  }
+  return out;
+}
+
+function axisMatrix(kx: number, ky: number): string {
+  return `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 1 0`;
+}
 
 function Glass({
-  strength = 10,
-  depth = 6,
+  scaleX = 0.1,
+  scaleY = 0.1,
   chroma = 0.2,
-  blur = 0.5,
-  glow = 0.1,
+  depth = 6,
+  domeDepth = 0,
+  splay = 1,
+  blur = 0,
+  glow = 0.12,
   glowSpread = 1,
-  glowExponent = 0.5,
-  edgeHighlight = 0.25,
+  glowExponent = 1.5,
+  edgeHighlight = 0.3,
   edgeWidth = 3,
   edgeExponent = 1.5,
   specularStrength = 1,
   specularAngle = 45,
-  brightness = 0,
-  lensRadius = 14,
-  refraction,
+  specularDark = false,
+  sdfBoundary = true,
+  edgeFalloff = true,
+  mapSize = 256,
+  maxDisplacement = Number.POSITIVE_INFINITY,
+  resolution = 1,
+  reveal = false,
+  tint = 0,
+  tintBlur = 12,
+  tintColor,
+  dynamicsRef,
+  lens,
   className,
   children,
   ...props
 }: GlassProps) {
-  const filterBase = useId().replace(/[^a-zA-Z0-9-]/g, "");
-  const [lens, setLens] = useState<LensState | null>(null);
-  const generation = useRef(0);
-  const lastSize = useRef<{ w: number; h: number } | null>(null);
+  const dark = useGlassDark();
+  const tintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
+  const baseId = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const filterId = `${baseId}-glass`;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const lensLayerRef = useRef<HTMLDivElement | null>(null);
+  const filterRef = useRef<SVGFilterElement | null>(null);
+  const feBlurRef = useRef<SVGFEGaussianBlurElement | null>(null);
+  const dispRefs = useRef<(SVGFEDisplacementMapElement | null)[]>([
+    null,
+    null,
+    null,
+  ]);
+  const slotsRef = useRef<SlotEls[]>(Array.from({ length: SLOTS }, makeSlot));
+  const mapCache = useRef(new Map<string, string>());
+  const decodedUrls = useRef(new Set<string>());
+  const pendingUrls = useRef(new Set<string>());
+  const version = useRef(0);
+  const lastScale = useRef(-1);
+  const [slotCount, setSlotCount] = useState(1);
+  const slotCountRef = useRef(1);
+  slotCountRef.current = slotCount;
+
+  const scaleMax = Math.max(scaleX, scaleY, 1e-4);
+  const kx = scaleX / scaleMax;
+  const ky = scaleY / scaleMax;
+
+  const rasterKind = isRasterChild(children);
+  const useWebGL =
+    forcedRenderer === "svg"
+      ? false
+      : rasterKind !== null &&
+        webglAvailable() &&
+        (forcedRenderer === "webgl" || isSafariBrowser());
+
+  const params = useRef<EngineParams>({
+    depth,
+    domeDepth,
+    splay,
+    specularAngle,
+    specularStrength,
+    specularDark,
+    glow,
+    glowSpread,
+    glowExponent,
+    edgeHighlight,
+    edgeWidth,
+    edgeExponent,
+    mapSize,
+    scaleMax,
+    maxDisplacement,
+    chroma,
+    blur,
+    sdfBoundary,
+    edgeFalloff,
+    kx,
+    ky,
+    resolution,
+    tint: clamp01(tint),
+    tintBlur,
+    tintRGB,
+  });
+  params.current = {
+    depth,
+    domeDepth,
+    splay,
+    specularAngle,
+    specularStrength,
+    specularDark,
+    glow,
+    glowSpread,
+    glowExponent,
+    edgeHighlight,
+    edgeWidth,
+    edgeExponent,
+    mapSize,
+    scaleMax,
+    maxDisplacement,
+    chroma,
+    blur,
+    sdfBoundary,
+    edgeFalloff,
+    kx,
+    ky,
+    resolution,
+    tint: clamp01(tint),
+    tintBlur,
+    tintRGB,
+  };
 
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
-      if (!node || typeof ResizeObserver === "undefined") {
+      if (!node || typeof window === "undefined") {
         return;
       }
-      const regenerate = (w: number, h: number) => {
-        const prev = lastSize.current;
-        if (prev && Math.abs(prev.w - w) < 1 && Math.abs(prev.h - h) < 1) {
+      rootRef.current = node;
+      if (useWebGL) {
+        return;
+      }
+      let raf = 0;
+      let lastChroma = -1;
+      let lastBlurStd = -1;
+      const collapse = (slot: SlotEls) => {
+        if (slot.lastW === "0.001") {
           return;
         }
-        lastSize.current = { w, h };
-        const url = generateLensMap({
-          halfW: w / 2,
-          halfH: h / 2,
-          radius: lensRadius,
-          depth,
-          glowStrength: glow,
-          glowSpread,
-          glowExponent,
-          edgeStrength: edgeHighlight,
-          edgeWidth,
-          edgeExponent,
-          specularAngle,
-        });
-        generation.current += 1;
-        setLens(
-          url ? { url, width: w, height: h, key: generation.current } : null
-        );
-      };
-      const observer = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (!entry) {
-          return;
+        for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
+          el?.setAttribute("x", "0");
+          el?.setAttribute("y", "0");
+          el?.setAttribute("width", "0.001");
+          el?.setAttribute("height", "0.001");
         }
-        const box = entry.contentRect;
-        regenerate(Math.round(box.width), Math.round(box.height));
-      });
-      observer.observe(node);
-      regenerate(Math.round(node.clientWidth), Math.round(node.clientHeight));
-      return () => {
-        observer.disconnect();
-        lastSize.current = null;
+        if (slot.backdrop) {
+          slot.backdrop.style.display = "none";
+          slot.lastBackdrop = "";
+        }
+        slot.lastX = "0";
+        slot.lastY = "0";
+        slot.lastW = "0.001";
+        slot.lastH = "0.001";
+        slot.lastWidth = 0;
+        slot.lastHeight = 0;
       };
+      const getMap = (key: string, mp: MapParams): string => {
+        const cached = mapCache.current.get(key);
+        if (cached !== undefined) {
+          return cached;
+        }
+        const url = generateLensMap(mp) ?? "";
+        mapCache.current.set(key, url);
+        if (mapCache.current.size > MAP_CACHE_LIMIT) {
+          const first = mapCache.current.keys().next().value;
+          if (first !== undefined) {
+            mapCache.current.delete(first);
+          }
+        }
+        return url;
+      };
+      const preload = (url: string): boolean => {
+        if (!url) {
+          return false;
+        }
+        if (decodedUrls.current.has(url)) {
+          return true;
+        }
+        if (pendingUrls.current.has(url)) {
+          return false;
+        }
+        pendingUrls.current.add(url);
+        const img = new Image();
+        img.onload = () => {
+          pendingUrls.current.delete(url);
+          if (decodedUrls.current.size > 256) {
+            decodedUrls.current.clear();
+          }
+          decodedUrls.current.add(url);
+        };
+        img.onerror = () => {
+          pendingUrls.current.delete(url);
+        };
+        img.src = url;
+        return false;
+      };
+      const tick = () => {
+        const layer = lensLayerRef.current;
+        for (const slot of slotsRef.current) {
+          if (!slot.hrefInit && slot.feImage) {
+            if (!slot.feImage.getAttribute("href")) {
+              slot.feImage.setAttribute("href", placeholderHref());
+            }
+            slot.hrefInit = true;
+          }
+        }
+        const p = params.current;
+        if (p.chroma !== lastChroma) {
+          lastChroma = p.chroma;
+          lastScale.current = -1;
+        }
+        const dyn = dynamicsRef?.current ?? undefined;
+        const zoom = dyn?.zoom ?? 1;
+        const depthMul = dyn?.depthMul ?? 1;
+        const G = p.resolution;
+        let mapChanged = false;
+        let rectChanged = false;
+        let hasLens = false;
+        let activeCount = 0;
+        let base: DOMRect | null = null;
+        if (layer) {
+          base = node.getBoundingClientRect();
+          const marks = layer.querySelectorAll<HTMLElement>("[data-glass-lens]");
+          for (let i = 0; i < SLOTS; i++) {
+            const slot = slotsRef.current[i];
+            const mark = marks[i];
+            if (!mark) {
+              collapse(slot);
+              continue;
+            }
+            const r = mark.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) {
+              collapse(slot);
+              continue;
+            }
+            hasLens = true;
+            activeCount += 1;
+            const ov = markOverrides(mark);
+            const tintRaw = mark.dataset.glassTint;
+            const tintNum = tintRaw === undefined ? Number.NaN : Number(tintRaw);
+            const lensTint = Number.isNaN(tintNum) ? p.tint : clamp01(tintNum);
+            const tintEff = 0.5 * lensTint;
+            const md = i === 0 ? dyn?.mapDims : undefined;
+            const rectW = Math.round(r.width * 2) / 2;
+            const rectH = Math.round(r.height * 2) / 2;
+            const genW = md ? Math.round(md.halfW * 4) / 2 : rectW;
+            const genH = md ? Math.round(md.halfH * 4) / 2 : rectH;
+            const resizing =
+              Math.abs(r.width - slot.prevW) > 0.3 ||
+              Math.abs(r.height - slot.prevH) > 0.3;
+            slot.prevW = r.width;
+            slot.prevH = r.height;
+            const radiusParts = getComputedStyle(mark)
+              .borderTopLeftRadius.split(" ")
+              .map((v) => Math.round(Number.parseFloat(v) * 2) / 2 || 0);
+            const cssRadius = radiusParts[0] ?? 0;
+            const cssRadiusY = radiusParts[1] ?? cssRadius;
+            const radius = md ? Math.round(md.radius * 2) / 2 : cssRadius;
+            const sizeChanged =
+              Math.abs(genW - slot.lastWidth) >= 0.5 ||
+              Math.abs(genH - slot.lastHeight) >= 0.5 ||
+              Math.abs(radius - slot.lastRadius) >= 0.5;
+            const unitsPerPx = md ? genW / Math.max(rectW, 1) : 1;
+            const baseDepth = ov.depth ?? p.depth;
+            const baseDome = ov.domeDepth ?? p.domeDepth;
+            const baseEdgeW = ov.edgeWidth ?? p.edgeWidth;
+            const effDepth =
+              Math.round(baseDepth * depthMul * unitsPerPx * 10) / 10;
+            const effDome = Math.round(baseDome * unitsPerPx * 10) / 10;
+            const effEdgeW = Math.round(baseEdgeW * unitsPerPx * 10) / 10;
+            const splayV = ov.splay ?? p.splay;
+            const angleV = ov.specularAngle ?? p.specularAngle;
+            const glowV = ov.glow ?? p.glow;
+            const glowSpreadV = ov.glowSpread ?? p.glowSpread;
+            const glowExpV = ov.glowExponent ?? p.glowExponent;
+            const edgeV = ov.edgeHighlight ?? p.edgeHighlight;
+            const edgeExpV = ov.edgeExponent ?? p.edgeExponent;
+            const key = `${genW}x${genH}r${radius}d${effDepth}o${effDome}p${splayV}a${angleV}g${glowV},${glowSpreadV},${glowExpV}e${edgeV},${effEdgeW},${edgeExpV}m${p.mapSize}f${p.sdfBoundary ? 1 : 0}${p.edgeFalloff ? 1 : 0}`;
+            if (!slot.lastKey || (!resizing && (sizeChanged || key !== slot.lastKey))) {
+              const url = getMap(key, {
+                halfW: genW / 2,
+                halfH: genH / 2,
+                radius,
+                depth: effDepth,
+                domeDepth: effDome,
+                splay: splayV,
+                specularAngle: angleV,
+                glowStrength: glowV,
+                glowSpread: glowSpreadV,
+                glowExponent: glowExpV,
+                edgeStrength: edgeV,
+                edgeWidth: effEdgeW,
+                edgeExponent: edgeExpV,
+                size: p.mapSize,
+                sdfBoundary: p.sdfBoundary,
+                edgeFalloff: p.edgeFalloff,
+              });
+              if (preload(url)) {
+                slot.feImage?.setAttribute("href", url);
+                slot.lastKey = key;
+                slot.lastWidth = genW;
+                slot.lastHeight = genH;
+                slot.lastRadius = radius;
+                mapChanged = true;
+              }
+            }
+            const tintFade = 1 - 0.85 * tintEff;
+            const matrix = axisMatrix(
+              p.kx * ov.mul * tintFade,
+              p.ky * ov.mul * tintFade
+            );
+            if (slot.lastMatrix !== matrix) {
+              slot.feScale?.setAttribute("values", matrix);
+              slot.lastMatrix = matrix;
+              rectChanged = true;
+            }
+            const fx = Math.round((r.left - base.left) * 2) / 2;
+            const fy = Math.round((r.top - base.top) * 2) / 2;
+            const bw = base.width || 1;
+            const bh = base.height || 1;
+            const sx = String((fx + EDGE_BIAS) / bw);
+            const sy = String((fy + EDGE_BIAS) / bh);
+            const sw = String(Math.max(0, rectW - 2 * EDGE_BIAS) / bw);
+            const sh = String(Math.max(0, rectH - 2 * EDGE_BIAS) / bh);
+            if (
+              slot.lastX !== sx ||
+              slot.lastY !== sy ||
+              slot.lastW !== sw ||
+              slot.lastH !== sh
+            ) {
+              for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
+                el?.setAttribute("x", sx);
+                el?.setAttribute("y", sy);
+                el?.setAttribute("width", sw);
+                el?.setAttribute("height", sh);
+              }
+              slot.lastX = sx;
+              slot.lastY = sy;
+              slot.lastW = sw;
+              slot.lastH = sh;
+              rectChanged = true;
+            }
+            if (slot.feMask) {
+              const maskKey = `${rectW}|${rectH}|${cssRadius}|${cssRadiusY}|${G}`;
+              if (!slot.lastMaskKey || (!resizing && slot.lastMaskKey !== maskKey)) {
+                const maskUrl = roundedMaskHref(
+                  (rectW - 2 * EDGE_BIAS) * G,
+                  (rectH - 2 * EDGE_BIAS) * G,
+                  cssRadius * G,
+                  cssRadiusY * G
+                );
+                if (preload(maskUrl)) {
+                  slot.feMask.setAttribute("href", maskUrl);
+                  slot.lastMaskKey = maskKey;
+                  mapChanged = true;
+                }
+              }
+            }
+            const bd = slot.backdrop;
+            if (bd) {
+              const blurPx = Math.max(p.blur, tintEff * p.tintBlur);
+              const filter =
+                blurPx > 0.05
+                  ? `blur(${blurPx}px) saturate(${1 + 0.5 * tintEff})`
+                  : "none";
+              const bg =
+                tintEff > 0.001
+                  ? `rgba(${p.tintRGB},${Math.round(tintEff * 700) / 1000})`
+                  : "transparent";
+              const bdKey = `${fx},${fy},${rectW},${rectH},${cssRadius},${filter},${bg}`;
+              if (slot.lastBackdrop !== bdKey) {
+                bd.style.transform = `translate3d(${fx}px, ${fy}px, 0)`;
+                bd.style.width = `${rectW}px`;
+                bd.style.height = `${rectH}px`;
+                bd.style.borderRadius = `${cssRadius}px`;
+                bd.style.backdropFilter = filter;
+                bd.style.setProperty("-webkit-backdrop-filter", filter);
+                bd.style.background = bg;
+                bd.style.display = "block";
+                slot.lastBackdrop = bdKey;
+              }
+            }
+          }
+        }
+        const desiredSlots = Math.min(Math.max(activeCount, 1), SLOTS);
+        if (desiredSlots !== slotCountRef.current) {
+          slotCountRef.current = desiredSlots;
+          setSlotCount(desiredSlots);
+        }
+        if (hasLens && base) {
+          const blurStd = p.blur / (base.width || 1);
+          if (blurStd !== lastBlurStd) {
+            lastBlurStd = blurStd;
+            feBlurRef.current?.setAttribute("stdDeviation", String(blurStd));
+          }
+          const dispScale = Math.min(
+            p.scaleMax * zoom,
+            p.maxDisplacement / (base.width || 1)
+          );
+          if (Math.abs(dispScale - lastScale.current) > 0.0001) {
+            lastScale.current = dispScale;
+            const c = p.chroma;
+            const scales =
+              c > 0
+                ? [dispScale * (1 + 0.2 * c), dispScale * (1 + 0.1 * c), dispScale]
+                : [dispScale];
+            dispRefs.current.forEach((el, i) => {
+              if (el && scales[i] !== undefined) {
+                el.setAttribute("scale", String(scales[i]));
+              }
+            });
+            rectChanged = true;
+          }
+        }
+        if (
+          (mapChanged || (isWebKitOnly && rectChanged)) &&
+          filterRef.current &&
+          contentRef.current
+        ) {
+          version.current += 1;
+          const id = `${filterId}-v${version.current}`;
+          filterRef.current.id = id;
+          contentRef.current.style.filter = `url(#${id})`;
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
     },
-    [
-      depth,
-      edgeExponent,
-      edgeHighlight,
-      edgeWidth,
-      glow,
-      glowExponent,
-      glowSpread,
-      lensRadius,
-      specularAngle,
-    ]
+    [filterId, dynamicsRef, useWebGL]
   );
 
-  const filterId = lens ? `${filterBase}-${lens.key}` : null;
+  useEffect(() => {
+    if (!useWebGL || typeof window === "undefined") {
+      return;
+    }
+    const node = rootRef.current;
+    const lensLayer = lensLayerRef.current;
+    const sourceEl =
+      contentRef.current?.querySelector<
+        HTMLVideoElement | HTMLCanvasElement | HTMLImageElement
+      >("video,canvas,img") ?? null;
+    if (!node || !lensLayer || !sourceEl) {
+      return;
+    }
+    const renderer = new GlassWebGLRenderer();
+    return renderer.attach(node, lensLayer, sourceEl, {
+      getParams: () => params.current,
+      getDynamics: () => dynamicsRef?.current ?? undefined,
+      reveal,
+    });
+  }, [useWebGL, reveal, dynamicsRef]);
+
   const source = blur > 0 ? "blurred" : "SourceGraphic";
+  const slotIndexes = Array.from({ length: SLOTS }, (_, i) => i);
+  const renderSlots = Array.from({ length: slotCount }, (_, i) => i);
+  const axisValues = axisMatrix(kx, ky);
 
   return (
     <div className={cn("relative", className)} ref={attach} {...props}>
-      {children}
-      {filterId && lens ? (
-        <>
-          <svg
-            aria-hidden="true"
-            className="absolute h-0 w-0"
-            focusable="false"
+      <div
+        className="relative h-full w-full"
+        ref={contentRef}
+        style={{
+          ...(useWebGL
+            ? { visibility: reveal ? "hidden" : "visible" }
+            : { filter: `url(#${filterId})`, willChange: "filter" }),
+          ...(resolution !== 1
+            ? {
+                width: `${resolution * 100}%`,
+                height: `${resolution * 100}%`,
+                transform: `scale(${1 / resolution})`,
+                transformOrigin: "0 0",
+              }
+            : null),
+        }}
+      >
+        {resolution !== 1 ? (
+          <div
+            style={{
+              width: `${100 / resolution}%`,
+              height: `${100 / resolution}%`,
+              transform: `scale(${resolution})`,
+              transformOrigin: "0 0",
+            }}
           >
-            <defs>
-              <filter
-                colorInterpolationFilters="sRGB"
-                filterUnits="objectBoundingBox"
-                height="100%"
-                id={filterId}
-                width="100%"
-                x="0%"
-                y="0%"
-              >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        {slotIndexes.map((i) => (
+          <div
+            key={`bd-${i}`}
+            ref={(el) => {
+              slotsRef.current[i].backdrop = el;
+            }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "none",
+              willChange: "backdrop-filter, transform",
+            }}
+          />
+        ))}
+      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        ref={lensLayerRef}
+      >
+        {lens}
+      </div>
+      {!useWebGL && (
+        <svg aria-hidden="true" className="absolute h-0 w-0" focusable="false">
+          <defs>
+          <filter
+            colorInterpolationFilters="sRGB"
+            filterUnits="objectBoundingBox"
+            height="1"
+            id={filterId}
+            primitiveUnits="objectBoundingBox"
+            ref={filterRef}
+            width="1"
+            x="0"
+            y="0"
+          >
+            <feFlood
+              floodColor="rgb(128,128,128)"
+              floodOpacity="1"
+              result="mapBg"
+            />
+            {renderSlots.map((i) => (
+              <feImage
+                key={`img-${i}`}
+                preserveAspectRatio="none"
+                ref={(el) => {
+                  slotsRef.current[i].feImage = el;
+                }}
+                result={`raw${i}`}
+              />
+            ))}
+            {renderSlots.map((i) => (
+              <feColorMatrix
+                in={`raw${i}`}
+                key={`scale-${i}`}
+                ref={(el) => {
+                  slotsRef.current[i].feScale = el;
+                }}
+                result={`scaled${i}`}
+                type="matrix"
+                values={axisValues}
+              />
+            ))}
+            {renderSlots.map((i) => (
+              <feComposite
+                in={`scaled${i}`}
+                in2={i === 0 ? "mapBg" : `m${i - 1}`}
+                key={`mc-${i}`}
+                operator="over"
+                result={i === slotCount - 1 ? "map" : `m${i}`}
+              />
+            ))}
+            {blur > 0 && (
+              <feGaussianBlur
+                in="SourceGraphic"
+                ref={feBlurRef}
+                result="blurred"
+                stdDeviation="0"
+              />
+            )}
+            {chroma > 0 ? (
+              <>
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[0] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dR"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dR"
+                  result="cR"
+                  type="matrix"
+                  values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                />
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[1] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dG"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dG"
+                  result="cG"
+                  type="matrix"
+                  values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                />
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[2] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dB"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dB"
+                  result="cB"
+                  type="matrix"
+                  values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+                />
+                <feComposite
+                  in="cR"
+                  in2="cG"
+                  k1="0"
+                  k2="1"
+                  k3="1"
+                  k4="0"
+                  operator="arithmetic"
+                  result="cRG"
+                />
+                <feComposite
+                  in="cRG"
+                  in2="cB"
+                  k1="0"
+                  k2="1"
+                  k3="1"
+                  k4="0"
+                  operator="arithmetic"
+                  result="lensResult"
+                />
+              </>
+            ) : (
+              <feDisplacementMap
+                in={source}
+                in2="map"
+                ref={(el) => {
+                  dispRefs.current[0] = el;
+                  if (el && !el.hasAttribute("scale")) {
+                    el.setAttribute("scale", "0");
+                    lastScale.current = -1;
+                  }
+                }}
+                result="lensResult"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            )}
+            {(glow > 0 || edgeHighlight > 0) &&
+              (specularDark ? (
+                <>
+                  <feColorMatrix
+                    in="map"
+                    result="spec"
+                    type="matrix"
+                    values={`0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 0 0 1`}
+                  />
+                  <feComposite
+                    in="spec"
+                    in2="lensResult"
+                    k1="1"
+                    k2="0"
+                    k3="0"
+                    k4="0"
+                    operator="arithmetic"
+                    result="lensResult"
+                  />
+                </>
+              ) : (
+                <>
+                  <feColorMatrix
+                    in="map"
+                    result="spec"
+                    type="matrix"
+                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 -0.5019607843"
+                  />
+                  <feComposite
+                    in="spec"
+                    in2="lensResult"
+                    k1="0"
+                    k2={specularStrength}
+                    k3="1"
+                    k4="0"
+                    operator="arithmetic"
+                    result="lensResult"
+                  />
+                </>
+              ))}
+            {renderSlots.map((i) =>
+              reveal ? (
                 <feImage
-                  height={lens.height}
-                  href={lens.url}
+                  height="0.001"
+                  key={`mask-${i}`}
                   preserveAspectRatio="none"
-                  result="map"
-                  width={lens.width}
+                  ref={(el) => {
+                    slotsRef.current[i].feMask = el;
+                  }}
+                  result={`mask${i}`}
+                  width="0.001"
                   x="0"
                   y="0"
                 />
-                {blur > 0 && (
-                  <feGaussianBlur
-                    in="SourceGraphic"
-                    result="blurred"
-                    stdDeviation={blur}
-                  />
-                )}
-                {chroma > 0 ? (
-                  <>
-                    <feDisplacementMap
-                      in={source}
-                      in2="map"
-                      result="dispR"
-                      scale={strength * (1 + 0.2 * chroma)}
-                      xChannelSelector="R"
-                      yChannelSelector="G"
-                    />
-                    <feColorMatrix
-                      in="dispR"
-                      result="chanR"
-                      type="matrix"
-                      values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
-                    />
-                    <feDisplacementMap
-                      in={source}
-                      in2="map"
-                      result="dispG"
-                      scale={strength * (1 + 0.1 * chroma)}
-                      xChannelSelector="R"
-                      yChannelSelector="G"
-                    />
-                    <feColorMatrix
-                      in="dispG"
-                      result="chanG"
-                      type="matrix"
-                      values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
-                    />
-                    <feDisplacementMap
-                      in={source}
-                      in2="map"
-                      result="dispB"
-                      scale={strength}
-                      xChannelSelector="R"
-                      yChannelSelector="G"
-                    />
-                    <feColorMatrix
-                      in="dispB"
-                      result="chanB"
-                      type="matrix"
-                      values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
-                    />
-                    <feComposite
-                      in="chanR"
-                      in2="chanG"
-                      k1="0"
-                      k2="1"
-                      k3="1"
-                      k4="0"
-                      operator="arithmetic"
-                      result="chanRG"
-                    />
-                    <feComposite
-                      in="chanRG"
-                      in2="chanB"
-                      k1="0"
-                      k2="1"
-                      k3="1"
-                      k4="0"
-                      operator="arithmetic"
-                      result="refr"
-                    />
-                  </>
-                ) : (
-                  <feDisplacementMap
-                    in={source}
-                    in2="map"
-                    result="refr"
-                    scale={strength}
-                    xChannelSelector="R"
-                    yChannelSelector="G"
-                  />
-                )}
-                {(glow > 0 || edgeHighlight > 0) && (
-                  <>
-                    <feColorMatrix
-                      in="map"
-                      result="spec"
-                      type="matrix"
-                      values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 -0.5019607843"
-                    />
-                    <feComposite
-                      in="spec"
-                      in2="refr"
-                      k1="0"
-                      k2={specularStrength}
-                      k3="1"
-                      k4="0"
-                      operator="arithmetic"
-                    />
-                  </>
-                )}
-              </filter>
-            </defs>
-          </svg>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
-          >
-            <div
-              className="absolute inset-0 rounded-[inherit]"
-              style={{ filter: `url(#${filterId})` }}
-            >
-              {refraction ?? (
-                <div
-                  className="absolute inset-0 rounded-[inherit]"
-                  style={{ background: DEFAULT_REFRACTION_FILL }}
+              ) : (
+                <feFlood
+                  floodColor="black"
+                  floodOpacity="1"
+                  height="0.001"
+                  key={`mask-${i}`}
+                  ref={(el) => {
+                    slotsRef.current[i].feFlood = el;
+                  }}
+                  result={`mask${i}`}
+                  width="0.001"
+                  x="0"
+                  y="0"
                 />
-              )}
-            </div>
-            {brightness > 0 && (
-              <div
-                className="absolute inset-0 rounded-[inherit] bg-white"
-                style={{ opacity: brightness }}
-              />
+              )
             )}
-          </div>
-        </>
-      ) : null}
+            <feMerge result="unionMask">
+              {renderSlots.map((i) => (
+                <feMergeNode in={`mask${i}`} key={`mn-${i}`} />
+              ))}
+            </feMerge>
+            {reveal ? (
+              <feComposite in="lensResult" in2="unionMask" operator="in" />
+            ) : (
+              <>
+                <feComposite
+                  in="lensResult"
+                  in2="unionMask"
+                  operator="in"
+                  result="lensClipped"
+                />
+                <feComposite
+                  in="SourceGraphic"
+                  in2="unionMask"
+                  operator="out"
+                  result="holedSG"
+                />
+                <feComposite in="lensClipped" in2="holedSG" operator="over" />
+              </>
+            )}
+          </filter>
+        </defs>
+        </svg>
+      )}
     </div>
   );
 }
 
-export { Glass };
+export { Glass, generateLensMap, isSafariBrowser, useGlassDark };
+export type { GlassDynamics, MapParams };
