@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -16,5 +16,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Modal alert on Base UI Dialog. Import the parts from \"@/components/ui/glass-dialog\" and compose trigger, panel, title, description, and close. Focus trap, escape, and outside-press dismissal are handled. The panel renders on GlassSurface over a blurred scrim. Accepts `tint`.",
   "type": "registry:ui"
 }

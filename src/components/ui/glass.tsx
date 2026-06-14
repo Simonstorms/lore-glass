@@ -3,6 +3,7 @@ export {
   generateLensMap,
   isSafariBrowser,
   useGlassDark,
+  useHydrated,
 } from "../../../registry/default/glass/glass";
 export type {
   GlassDynamics,

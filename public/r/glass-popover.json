@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -16,5 +16,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "iOS context menu on Base UI Menu. Import the parts from \"@/components/ui/glass-popover\" and compose a trigger with icon / label / sublabel rows. Keyboard navigation and close-on-select are handled. Renders on GlassSurface so it floats over any page content. Accepts `tint`.",
   "type": "registry:ui"
 }

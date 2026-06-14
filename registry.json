@@ -8,6 +8,7 @@
       "type": "registry:ui",
       "title": "Glass",
       "description": "A cross-browser liquid-glass lens engine built on SVG feDisplacementMap. Refracts live DOM content through movable lens regions with a circle-profile bezel, dome bulge, chromatic aberration, and baked specular highlights. Ships with a dependency-free motion core (overshoot tweens, springs, rubber-band) for gel-like interactions. Independent implementation of the displacement-map technique described in Aave Labs' 'Building Glass for the Web'.",
+      "docs": "Wrap content in <Glass> to refract it through a liquid-glass lens. The engine bends only its own children, so put the background inside <Glass> and pass refracting regions through the `lens` prop. Mark each region with `data-glass-lens`; it tracks position, size, and border radius every frame. Tune with scaleX/scaleY (strength), depth (edge band), domeDepth (curvature), chroma, blur, glow, edgeHighlight. For floating UI over arbitrary content the engine cannot reach (portals, the rest of the page), use GlassSurface, also exported from this package. Requires Tailwind v4 and React 19. Gotcha: Tailwind v4 compiles translate-x-*/scale-* to the `translate`/`scale` properties, so transition those, not `transform`, when animating a lens.",
       "files": [
         {
           "path": "registry/default/glass/glass.tsx",
@@ -32,8 +33,9 @@
       "type": "registry:ui",
       "title": "Glass Switch",
       "description": "An iOS-style liquid-glass switch: the thumb rests as an opaque platter and lifts into a clear warping lens on press, with velocity-driven gel deformation, rubber-band overdrag, and overshoot travel tweens.",
+      "docs": "Import { GlassSwitch } from \"@/components/ui/glass-switch\" and use it as a controlled toggle (checked / onCheckedChange). The thumb rests as a solid platter and lifts into a refracting lens while pressed. Takes no tint prop.",
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -47,8 +49,9 @@
       "type": "registry:ui",
       "title": "Glass Slider",
       "description": "A liquid-glass slider with a native range input back-sync: the handle lifts into a refracting lens while dragging, keeping the fill value readable through the glass, and settles back to a solid platter on release.",
+      "docs": "Import { GlassSlider } from \"@/components/ui/glass-slider\". Controlled via value / onValueChange. The handle lifts into a clear lens while dragging and rubber-bands past the ends; a hidden native range input keeps it accessible. Takes no tint prop.",
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -62,11 +65,12 @@
       "type": "registry:ui",
       "title": "Glass Tabs",
       "description": "Base UI tabs with a liquid-glass selection indicator: a spring-driven lens glides between options, deforming like a droplet with velocity and refracting the highlighted option beneath it.",
+      "docs": "Base UI tabs with a glass selection indicator. Import the parts from \"@/components/ui/glass-tabs\" and compose GlassTabs / GlassTabsList / GlassTabsTab / GlassTabsPanel. The lens springs between tabs and sits behind the labels so they stay legible. Accepts `tint` (0 clear to 1 tinted).",
       "dependencies": [
         "@base-ui/react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -80,8 +84,9 @@
       "type": "registry:ui",
       "title": "Glass Button",
       "description": "An iOS-style liquid-glass button: a circular icon disc or text capsule on a frosted glass surface, with a velocity-eased press gel that squeezes the button and clears the tint while held.",
+      "docs": "Import { GlassButton } from \"@/components/ui/glass-button\". variant=\"icon\" (default) renders a fixed-size disc (pass an icon as children with an aria-label); variant=\"capsule\" renders a text pill that grows with its label. `size` sets disc diameter / capsule height in px; `tint` is 0 (clear) to 1 (opaque). All native <button> props are forwarded.",
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -95,11 +100,12 @@
       "type": "registry:ui",
       "title": "Glass Popover",
       "description": "An iOS-style liquid-glass context menu on Base UI Menu: a frosted, tinted panel that blurs the page behind it, with icon, label, and sublabel rows, hairline separators, keyboard navigation, and a gel scale-in.",
+      "docs": "iOS context menu on Base UI Menu. Import the parts from \"@/components/ui/glass-popover\" and compose a trigger with icon / label / sublabel rows. Keyboard navigation and close-on-select are handled. Renders on GlassSurface so it floats over any page content. Accepts `tint`.",
       "dependencies": [
         "@base-ui/react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -113,11 +119,12 @@
       "type": "registry:ui",
       "title": "Glass Dialog",
       "description": "A modal liquid-glass dialog on Base UI Dialog: a blurred scrim, a frosted tinted glass panel that scales into place, and accessible title, description, and close parts.",
+      "docs": "Modal alert on Base UI Dialog. Import the parts from \"@/components/ui/glass-dialog\" and compose trigger, panel, title, description, and close. Focus trap, escape, and outside-press dismissal are handled. The panel renders on GlassSurface over a blurred scrim. Accepts `tint`.",
       "dependencies": [
         "@base-ui/react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -131,11 +138,12 @@
       "type": "registry:ui",
       "title": "Glass Tooltip",
       "description": "A liquid-glass tooltip chip on Base UI Tooltip with provider-based delay grouping: a small frosted capsule that scales in from its anchor and stays legible over any content.",
+      "docs": "Import GlassTooltipProvider plus the tooltip parts from \"@/components/ui/glass-tooltip\". Wrap a group of triggers in one provider so adjacent tooltips share a single open delay (moving between buttons feels instant). The chip renders on GlassSurface. Accepts `tint`.",
       "dependencies": [
         "@base-ui/react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {
@@ -149,11 +157,12 @@
       "type": "registry:ui",
       "title": "Glass Input",
       "description": "An iOS-style search field in a liquid-glass capsule: a frosted tinted surface with a leading icon slot and a focus ring that glows in with a soft tint lift.",
+      "docs": "iOS search field. Import { GlassInput } from \"@/components/ui/glass-input\". Pass a leading icon through the icon slot; focusing glows a ring and lifts the tint. Renders on GlassSurface and forwards native <input> props. Accepts `tint`.",
       "dependencies": [
         "@base-ui/react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+        "https://loreglasses.com/r/glass.json"
       ],
       "files": [
         {

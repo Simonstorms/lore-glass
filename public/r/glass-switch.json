@@ -4,7 +4,7 @@
   "title": "Glass Switch",
   "description": "An iOS-style liquid-glass switch: the thumb rests as an opaque platter and lifts into a clear warping lens on press, with velocity-driven gel deformation, rubber-band overdrag, and overshoot travel tweens.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -13,5 +13,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Import { GlassSwitch } from \"@/components/ui/glass-switch\" and use it as a controlled toggle (checked / onCheckedChange). The thumb rests as a solid platter and lifts into a refracting lens while pressed. Takes no tint prop.",
   "type": "registry:ui"
 }

@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -16,5 +16,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Import GlassTooltipProvider plus the tooltip parts from \"@/components/ui/glass-tooltip\". Wrap a group of triggers in one provider so adjacent tooltips share a single open delay (moving between buttons feels instant). The chip renders on GlassSurface. Accepts `tint`.",
   "type": "registry:ui"
 }

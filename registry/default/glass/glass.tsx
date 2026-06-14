@@ -15,6 +15,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 const SLOTS = 5;
@@ -375,6 +376,16 @@ function useGlassDark(): boolean {
   return dark;
 }
 
+const subscribeHydration = () => () => {};
+
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeHydration,
+    () => true,
+    () => false
+  );
+}
+
 interface GlassProps extends ComponentProps<"div"> {
   blur?: number;
   chroma?: number;
@@ -583,13 +594,15 @@ function Glass({
   const kx = scaleX / scaleMax;
   const ky = scaleY / scaleMax;
 
+  const hydrated = useHydrated();
   const rasterKind = isRasterChild(children);
   const useWebGL =
-    forcedRenderer === "svg"
+    hydrated &&
+    (forcedRenderer === "svg"
       ? false
       : rasterKind !== null &&
         webglAvailable() &&
-        (forcedRenderer === "webgl" || isSafariBrowser());
+        (forcedRenderer === "webgl" || isSafariBrowser()));
 
   const params = useRef<EngineParams>({
     depth,
@@ -1298,5 +1311,5 @@ function Glass({
   );
 }
 
-export { Glass, generateLensMap, isSafariBrowser, useGlassDark };
+export { Glass, generateLensMap, isSafariBrowser, useGlassDark, useHydrated };
 export type { GlassDynamics, MapParams };

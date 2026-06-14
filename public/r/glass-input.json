@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -16,5 +16,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "iOS search field. Import { GlassInput } from \"@/components/ui/glass-input\". Pass a leading icon through the icon slot; focusing glows a ring and lifts the tint. Renders on GlassSurface and forwards native <input> props. Accepts `tint`.",
   "type": "registry:ui"
 }

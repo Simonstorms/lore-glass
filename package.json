@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:registry": "shadcn build",
-    "build": "shadcn build && vite build",
+    "build:llms": "node scripts/generate-llms.mjs",
+    "build": "shadcn build && node scripts/generate-llms.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

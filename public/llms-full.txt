@@ -1,0 +1,6004 @@
+# lore-glass: full documentation
+
+> Apple Liquid Glass components for React, installed as source with the shadcn CLI. This single file contains every component's docs and full source.
+
+## What it is
+
+lore-glass is a family of Apple "Liquid Glass" components for React, installed
+as source into your own project with the shadcn CLI. It is built on a
+cross-browser lens engine: an SVG `feDisplacementMap` filter refracts live DOM
+(text stays selectable, links stay clickable), and the components layer the iOS
+interactions on top (gel presses, velocity deformation, rubber-band overdrag,
+spring travel).
+
+Requirements: Tailwind CSS v4 and React 19, in a project initialized with the
+shadcn CLI (so the `@/components` and `@/lib` aliases resolve). No runtime
+dependency is added; components that use a headless primitive pull in
+`@base-ui/react`.
+
+## Install
+
+Every install command writes source files you own under `@/components/ui`.
+
+```bash
+# By URL
+npx shadcn@latest add https://loreglasses.com/r/glass-popover.json
+
+# Or register the namespace once in components.json, then add by name:
+#   "registries": { "@lore-glass": "https://loreglasses.com/r/{name}.json" }
+npx shadcn@latest add @lore-glass/glass-popover
+```
+
+Components depend on the `glass` package through registry dependencies, so it
+installs automatically. Swap the trailing name for any component below.
+
+## The Glass engine and the lens contract
+
+`Glass` filters its own children. Inside the `lens` prop, every element marked
+`data-glass-lens` becomes a refracting region that tracks position, size, and
+border radius each frame.
+
+```tsx
+import { Glass } from "@/components/ui/glass";
+
+<Glass
+  className="absolute inset-0"
+  tint={0.3}
+  lens={
+    <div
+      data-glass-lens
+      className="absolute top-10 left-10 h-24 w-32 rounded-3xl"
+    />
+  }
+>
+  <BackgroundContent />
+</Glass>;
+```
+
+Key props: `scaleX`/`scaleY` (refraction strength), `depth` (edge falloff band),
+`domeDepth` (curvature), `splay`, `chroma`, `blur`, `glow`, `edgeHighlight`,
+`specularAngle`, `specularStrength`. The engine bends only its own children, not
+arbitrary page content behind it.
+
+## Tint
+
+Every text-bearing component (button, popover, dialog, tooltip, input, tabs)
+takes `tint`, a number from 0 (ultra clear) to 1 (fully tinted), modeled on the
+iOS 27 Liquid Glass appearance slider. Rising tint fades in a frosted backdrop,
+grows the blur, and softens the refraction; even fully tinted glass stays
+slightly translucent, and text on the glass never tints. `tintColor` overrides
+the tint color as an `r,g,b` triple (defaults to white in light mode, dark gray
+in dark mode). On the core engine, individual lenses override it with
+`data-glass-tint`. The switch and slider take no tint: their thumbs rest as solid
+platters and only clear into a lens while pressed.
+
+## Overlay panels
+
+Popover, dialog, tooltip, and input float over arbitrary app content, which the
+engine cannot refract (it bends its own children only). They render on
+`GlassSurface`: a frosted, tinted panel built from plain `backdrop-filter` blur
+and saturation, the same material iOS uses for menus and alerts. It renders
+identically in every browser. Wrapping your whole page in `Glass` does not
+survive portals, so use `GlassSurface` for floating UI.
+
+## Browser support
+
+The lens engine refracts live DOM in every modern browser. WebKit (Safari)
+cannot run an SVG `feDisplacementMap` over a live `<video>` or `<canvas>`, so when
+`Glass` wraps a single raster element (video, canvas, or image) it automatically
+switches to a WebGL renderer on Safari that reproduces the same lens. Detection
+is automatic with no API change, and it falls back to the plain element if WebGL
+is unavailable. The WebGL path covers refraction, chromatic aberration,
+specular and edge highlights, dome, splay, and per-lens overrides; the `blur`
+prop is not applied on it. Force a path during development with
+`?glassRenderer=webgl` or `?glassRenderer=svg`.
+
+## Gotchas
+
+- With `chroma` on, the refraction layer must be opaque or anti-aliased edges
+  grow dark halos.
+- Tailwind v4 compiles `translate-x-*` and `scale-*` to the `translate` and
+  `scale` properties; transition those, not `transform`, when animating a lens.
+
+---
+
+# Components
+
+---
+
+# Glass
+
+> The core lens engine. It refracts its own children through an SVG feDisplacementMap, so text stays selectable and links stay clickable under the lens. Every element marked data-glass-lens becomes a movable refracting region. Works in Chromium, Safari, and Firefox.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass
+```
+
+## Props
+
+### Glass
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `lens` | `ReactNode` | `required` | Layer rendered above the content. Every element inside it marked with data-glass-lens becomes a refracting lens whose position, size, and border radius are tracked each frame. |
+| `scaleX / scaleY` | `number` | `0.1` | Refraction strength per axis, as a fraction of the container width. |
+| `tint` | `number` | `0` | Liquid Glass tint from 0 (ultra clear) to 1 (fully tinted). Raises a frosted backdrop inside the lens and softens the refraction, like the iOS 27 appearance slider. |
+| `tintBlur` | `number` | `12` | Backdrop blur in px reached at full tint. |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple, for example 255,255,255. Defaults to white in light mode and a dark gray in dark mode. |
+| `chroma` | `number` | `0.2` | Chromatic aberration fringe along the lens edges. |
+| `depth` | `number` | `6` | Width of the edge falloff band in px, the zone where the bend ramps up. |
+| `domeDepth` | `number` | `0` | Curvature of the lens dome. 0 keeps the center flat. |
+| `splay` | `number` | `1` | Direction of the edge bend, from inward 0 to outward 1. |
+| `blur` | `number` | `0` | Blur in px applied only inside the lens. |
+| `glow` | `number` | `0.12` | Strength of the baked specular glow. |
+| `edgeHighlight` | `number` | `0.3` | Strength of the bright rim along the lens edge. |
+| `specularAngle` | `number` | `45` | Angle of the specular highlight in degrees. |
+| `specularStrength` | `number` | `1` | Multiplier for the specular highlight pass. |
+| `mapSize` | `number` | `256` | Pixel resolution of the generated displacement map. |
+| `maxDisplacement` | `number` | `Infinity` | Upper bound for the displacement in px. |
+| `resolution` | `number` | `1` | Supersampling factor for the filtered content. |
+| `reveal` | `boolean` | `false` | Render only the lens regions instead of compositing them over the visible content. |
+| `dynamicsRef` | `RefObject<GlassDynamics>` | `undefined` | Imperative per-frame overrides for zoom, depth multiplier, and map dimensions, used for gel deformation. |
+
+### GlassSurface
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `tint` | `number` | `0.5` | Tint of the panel from 0 (clear) to 1 (opaque), same scale as the Glass tint prop. |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+| `blur` | `number` | `8` | Backdrop blur of the panel in px. |
+| `saturation` | `number` | `1.5` | Backdrop saturation boost, the iOS material color lift. |
+| `radius` | `number` | `16` | Corner radius of the panel in px. |
+| `specular` | `boolean` | `true` | Render the specular rim highlights. |
+| `handleRef` | `RefObject<GlassSurfaceHandle>` | `undefined` | Imperative handle with setTintLift for animating press and focus tint changes without re-rendering. |
+
+## Usage
+
+```tsx
+import { type PointerEvent, useRef, useState } from "react";
+import { ShowcaseGrid } from "@/components/docs/showcase-grid";
+import { Glass } from "@/components/ui/glass";
+
+const LENS_W = 150;
+const LENS_H = 110;
+
+function GlassDemo({ tint }: { tint?: number }) {
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const grab = useRef<{ dx: number; dy: number } | null>(null);
+
+  const toLocal = (e: PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / rect.width,
+      y: (e.clientY - rect.top) / rect.height,
+    };
+  };
+
+  return (
+    <div
+      className="absolute inset-0 cursor-grab touch-none select-none overflow-hidden rounded-[20px] active:cursor-grabbing"
+      onPointerCancel={() => {
+        grab.current = null;
+      }}
+      onPointerDown={(e) => {
+        const p = toLocal(e);
+        grab.current = { dx: p.x - pos.x, dy: p.y - pos.y };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!grab.current) {
+          return;
+        }
+        const p = toLocal(e);
+        setPos({
+          x: Math.min(1, Math.max(0, p.x - grab.current.dx)),
+          y: Math.min(1, Math.max(0, p.y - grab.current.dy)),
+        });
+      }}
+      onPointerUp={() => {
+        grab.current = null;
+      }}
+    >
+      <Glass
+        chroma={0.3}
+        className="absolute inset-0"
+        depth={12}
+        domeDepth={40}
+        edgeHighlight={0.3}
+        glow={0.12}
+        lens={
+          <div
+            data-glass-lens
+            style={{
+              position: "absolute",
+              left: `calc(${pos.x * 100}% - ${LENS_W / 2}px)`,
+              top: `calc(${pos.y * 100}% - ${LENS_H / 2}px)`,
+              width: LENS_W,
+              height: LENS_H,
+              borderRadius: 32,
+              boxShadow:
+                "inset 0 1px 1px rgba(255,255,255,0.6), 0 14px 34px -10px rgba(60,40,140,0.45)",
+            }}
+          />
+        }
+        scaleX={0.1}
+        scaleY={0.1}
+        tint={tint}
+      >
+        <ShowcaseGrid />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#1f2c49]">
+          <span className="font-semibold text-[30px] tracking-tight">
+            liquid glass
+          </span>
+          <span className="text-[13px] opacity-70">
+            drag the lens, it refracts this live DOM
+          </span>
+        </div>
+      </Glass>
+    </div>
+  );
+}
+
+export { GlassDemo };
+```
+
+## Examples
+
+### Video player
+
+Each control is its own lens refracting the live video underneath. Per lens overrides come from data-glass-* attributes.
+
+```tsx
+import { useCallback, useRef, useState } from "react";
+import { Glass } from "@/components/ui/glass";
+import { Back15, Fwd15, Pause, Play } from "@/components/docs/icons";
+
+const W = 480;
+const H = 270;
+const PLAY_SIZE = 111 * 0.75;
+const SKIP_SIZE = 65 * 0.75;
+const GAP = 24;
+const BAR_H = 30;
+const BAR_MARGIN = 12;
+const BAR_PAD = 14;
+const SKIP_SECONDS = 15;
+
+const MAIN_DEPTH = Math.round(0.16 * (PLAY_SIZE / 2) * 10) / 10;
+const SIDE_DEPTH = Math.round(0.14 * (SKIP_SIZE / 2) * 10) / 10;
+const BAR_DEPTH = 0.5 * (BAR_H / 2);
+const MAIN_SCALE = 0.07;
+const SIDE_MUL = 0.04 / MAIN_SCALE;
+const BAR_MUL = 0.04 / MAIN_SCALE;
+
+const pressTransition =
+  "width 0.3s cubic-bezier(0.22, 1.15, 0.36, 1.06), height 0.3s cubic-bezier(0.22, 1.15, 0.36, 1.06), transform 0.3s cubic-bezier(0.22, 1.15, 0.36, 1.06)";
+
+function GlassVideoExample() {
+  const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const scrubbing = useRef(false);
+  const wasPlaying = useRef(false);
+  const [pressed, setPressed] = useState<"back" | "play" | "fwd" | null>(null);
+
+  const visible = ready && (hovered || !entered);
+
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (el && el.readyState >= el.HAVE_CURRENT_DATA) {
+      setReady(true);
+    }
+  }, []);
+
+  const attachBar = useCallback((el: HTMLDivElement | null) => {
+    barRef.current = el;
+    if (!el) {
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      const v = videoRef.current;
+      if (v && Number.isFinite(v.duration) && v.duration > 0 && fillRef.current) {
+        fillRef.current.style.width = `${(v.currentTime / v.duration) * 100}%`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const toggle = () => {
+    const v = videoRef.current;
+    if (!v) {
+      return;
+    }
+    if (v.paused) {
+      v.play().catch(() => undefined);
+    } else {
+      v.pause();
+    }
+  };
+
+  const skip = (delta: number) => {
+    const v = videoRef.current;
+    if (!v || !Number.isFinite(v.duration)) {
+      return;
+    }
+    v.currentTime = Math.min(Math.max(v.currentTime + delta, 0), v.duration);
+  };
+
+  const seek = (clientX: number) => {
+    const v = videoRef.current;
+    const bar = barRef.current;
+    if (!(v && bar) || !Number.isFinite(v.duration) || v.duration <= 0) {
+      return;
+    }
+    const rect = bar.getBoundingClientRect();
+    const frac = Math.min(
+      Math.max((clientX - rect.left - BAR_PAD) / (rect.width - 2 * BAR_PAD), 0),
+      1
+    );
+    const t = frac * v.duration;
+    if (typeof v.fastSeek === "function") {
+      v.fastSeek(t);
+    } else {
+      v.currentTime = t;
+    }
+  };
+
+  const buttonStyle = (size: number, isPressed: boolean) => ({
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    transform: isPressed ? "scale(0.8)" : "scale(1)",
+    transition: pressTransition,
+    pointerEvents: "auto" as const,
+  });
+
+  const lensMark = (
+    size: number,
+    order: number,
+    overrides: Record<string, number>,
+    isPressed: boolean
+  ) => (
+    <div
+      data-glass-lens
+      style={{
+        width: size * (isPressed ? 0.8 : 1),
+        height: size * (isPressed ? 0.8 : 1),
+        borderRadius: 999,
+        order,
+        transition: pressTransition,
+      }}
+      {...Object.fromEntries(
+        Object.entries(overrides).map(([k, v]) => [`data-glass-${k}`, v])
+      )}
+    />
+  );
+
+  return (
+    <div
+      className="relative isolate max-w-full overflow-hidden rounded-[12px]"
+        onMouseEnter={() => {
+          setHovered(true);
+          setEntered(true);
+        }}
+        onMouseLeave={() => setHovered(false)}
+        style={{ width: W, aspectRatio: `${W} / ${H}` }}
+      >
+        <Glass
+          blur={0.3}
+          chroma={0}
+          className="absolute inset-0"
+          depth={MAIN_DEPTH}
+          domeDepth={35}
+          edgeHighlight={0.5}
+          edgeWidth={2.5}
+          glow={0}
+          glowSpread={0.5}
+          lens={
+            visible ? (
+              <div
+                className="absolute inset-0"
+                style={{ pointerEvents: "none" }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center" style={{ gap: GAP }}>
+                  {lensMark(
+                    SKIP_SIZE,
+                    1,
+                    {
+                      depth: SIDE_DEPTH,
+                      "dome-depth": 40,
+                      "edge-highlight": 0.49,
+                      "edge-width": 2,
+                      mul: SIDE_MUL,
+                    },
+                    pressed === "back"
+                  )}
+                  {lensMark(PLAY_SIZE, 2, {}, pressed === "play")}
+                  {lensMark(
+                    SKIP_SIZE,
+                    3,
+                    {
+                      depth: SIDE_DEPTH,
+                      "dome-depth": 40,
+                      "edge-highlight": 0.49,
+                      "edge-width": 2,
+                      mul: SIDE_MUL,
+                    },
+                    pressed === "fwd"
+                  )}
+                </div>
+                <div
+                  data-glass-lens
+                  data-glass-depth={BAR_DEPTH}
+                  data-glass-dome-depth={0}
+                  data-glass-edge-highlight={0.25}
+                  data-glass-edge-width={2}
+                  data-glass-mul={BAR_MUL}
+                  style={{
+                    position: "absolute",
+                    bottom: BAR_MARGIN,
+                    left: BAR_MARGIN,
+                    right: BAR_MARGIN,
+                    height: BAR_H,
+                    borderRadius: BAR_H / 2,
+                  }}
+                />
+              </div>
+            ) : null
+          }
+          scaleX={MAIN_SCALE}
+          scaleY={MAIN_SCALE}
+          specularAngle={30}
+          specularStrength={1}
+          splay={1}
+        >
+          <video
+            autoPlay
+            className="h-full w-full object-cover"
+            loop
+            muted
+            onCanPlay={() => setReady(true)}
+            onPause={() => setPlaying(false)}
+            onPlay={() => setPlaying(true)}
+            playsInline
+            ref={attachVideo}
+            src="/aurora.mp4"
+          />
+        </Glass>
+        <div
+          className="absolute inset-0 flex items-center justify-center text-white"
+          style={{
+            gap: GAP,
+            opacity: visible ? 1 : 0,
+            filter: visible ? "blur(0px)" : "blur(4px)",
+            transition: "opacity 0.25s ease-out, filter 0.25s ease-out",
+            pointerEvents: visible ? "auto" : "none",
+          }}
+        >
+          <button
+            aria-label={`Rewind ${SKIP_SECONDS} seconds`}
+            className="flex shrink-0 cursor-pointer items-center justify-center"
+            onClick={() => skip(-SKIP_SECONDS)}
+            onPointerDown={() => setPressed("back")}
+            onPointerLeave={() => setPressed(null)}
+            onPointerUp={() => setPressed(null)}
+            style={{ ...buttonStyle(SKIP_SIZE, pressed === "back"), order: 1 }}
+            type="button"
+          >
+            <Back15 style={{ width: "70.83%", height: "67.83%" }} />
+          </button>
+          <button
+            aria-label={playing ? "Pause" : "Play"}
+            className="flex shrink-0 cursor-pointer items-center justify-center"
+            onClick={toggle}
+            onPointerDown={() => setPressed("play")}
+            onPointerLeave={() => setPressed(null)}
+            onPointerUp={() => setPressed(null)}
+            style={{ ...buttonStyle(PLAY_SIZE, pressed === "play"), order: 2 }}
+            type="button"
+          >
+            {playing ? (
+              <Pause style={{ width: "49.55%", height: "49.55%" }} />
+            ) : (
+              <Play style={{ width: "49.55%", height: "49.55%" }} />
+            )}
+          </button>
+          <button
+            aria-label={`Forward ${SKIP_SECONDS} seconds`}
+            className="flex shrink-0 cursor-pointer items-center justify-center"
+            onClick={() => skip(SKIP_SECONDS)}
+            onPointerDown={() => setPressed("fwd")}
+            onPointerLeave={() => setPressed(null)}
+            onPointerUp={() => setPressed(null)}
+            style={{ ...buttonStyle(SKIP_SIZE, pressed === "fwd"), order: 3 }}
+            type="button"
+          >
+            <Fwd15 style={{ width: "70.83%", height: "67.83%" }} />
+          </button>
+        </div>
+        <div
+          aria-label="Seek"
+          className="absolute flex cursor-pointer touch-none items-center"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            scrubbing.current = true;
+            const v = videoRef.current;
+            wasPlaying.current = !!v && !v.paused;
+            v?.pause();
+            seek(e.clientX);
+          }}
+          onPointerMove={(e) => {
+            if (scrubbing.current) {
+              seek(e.clientX);
+            }
+          }}
+          onPointerUp={() => {
+            scrubbing.current = false;
+            if (wasPlaying.current) {
+              videoRef.current?.play().catch(() => undefined);
+            }
+          }}
+          ref={attachBar}
+          role="slider"
+          style={{
+            bottom: BAR_MARGIN,
+            left: BAR_MARGIN,
+            right: BAR_MARGIN,
+            height: BAR_H,
+            paddingLeft: BAR_PAD,
+            paddingRight: BAR_PAD,
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.25s ease-out",
+            pointerEvents: visible ? "auto" : "none",
+          }}
+        >
+          <div className="pointer-events-none relative h-[6px] flex-1 rounded-[3px] bg-white/30">
+            <div
+              className="pointer-events-none absolute top-0 left-0 h-full rounded-[inherit] bg-white"
+              ref={fillRef}
+              style={{ width: "0%" }}
+            />
+          </div>
+        </div>
+    </div>
+  );
+}
+
+export { GlassVideoExample };
+```
+
+## Source
+
+#### `glass.tsx`
+
+```tsx
+"use client";
+
+import {
+  GlassWebGLRenderer,
+  isRasterChild,
+  webglAvailable,
+} from "@/components/ui/glass-webgl";
+import { cn } from "@/lib/utils";
+import {
+  type ComponentProps,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+
+const SLOTS = 5;
+const MAP_CACHE_LIMIT = 64;
+const EDGE_BIAS = 0.5;
+
+interface MapParams {
+  depth: number;
+  domeDepth: number;
+  edgeExponent: number;
+  edgeStrength: number;
+  edgeWidth: number;
+  glowExponent: number;
+  glowSpread: number;
+  glowStrength: number;
+  halfH: number;
+  halfW: number;
+  radius: number;
+  size: number;
+  splay: number;
+  specularAngle: number;
+  sdfBoundary?: boolean;
+  edgeFalloff?: boolean;
+}
+
+interface GlassDynamics {
+  zoom?: number;
+  depthMul?: number;
+  mapDims?: { halfW: number; halfH: number; radius: number };
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function erf(x: number): number {
+  return Math.tanh(1.7724538509 * x);
+}
+
+function sphereAvgSlope(r: number, halfDim: number): number {
+  let sum = 0;
+  for (let i = 0; i <= 200; i++) {
+    const a = (i / 200) * halfDim;
+    const s = a / Math.sqrt(r * r - a * a);
+    sum += i === 0 || i === 200 ? 0.5 * s : s;
+  }
+  return sum / 200;
+}
+
+interface DomeConstants {
+  rx: number;
+  ry: number;
+  scaleX: number;
+  scaleY: number;
+}
+
+function computeDomeConstants(
+  domeDepth: number,
+  halfW: number,
+  halfH: number
+): DomeConstants {
+  const h = Math.max(0.01, Math.min(domeDepth, Math.min(halfW, halfH) - 1));
+  const rx = (halfW * halfW + h * h) / (2 * h);
+  const ry = (halfH * halfH + h * h) / (2 * h);
+  const ax = sphereAvgSlope(rx, halfW);
+  const ay = sphereAvgSlope(ry, halfH);
+  return {
+    rx,
+    ry,
+    scaleX: ax > 0 ? 0.5 / ax : 1,
+    scaleY: ay > 0 ? 0.5 / ay : 1,
+  };
+}
+
+function domeGradient(p: number, r: number, scale: number): number {
+  const c = Math.min(p, 0.999 * r);
+  return (c / Math.sqrt(r * r - c * c)) * scale;
+}
+
+function generateLensMap(p: MapParams): string | null {
+  if (p.halfW < 2 || p.halfH < 2) {
+    return null;
+  }
+  const sdfBoundary = p.sdfBoundary ?? true;
+  const edgeFalloff = p.edgeFalloff ?? true;
+  const size = p.size;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return null;
+  }
+  const image = ctx.createImageData(size, size);
+  const data = image.data;
+  const half = size >> 1;
+  const r0 = Math.min(p.radius, p.halfW, p.halfH);
+  const innerHalfW = Math.max(0, p.halfW - p.depth);
+  const innerHalfH = Math.max(0, p.halfH - p.depth);
+  const innerR = Math.max(0, Math.min(p.radius, Math.min(innerHalfW, innerHalfH)));
+  const falloffInv = p.depth > 0 ? 1 / (p.depth * Math.SQRT2) : 1e6;
+  const specOn = p.glowStrength > 0 || p.edgeStrength > 0;
+  const theta = (p.specularAngle * Math.PI) / 180;
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+  const spreadStart = (1 - p.glowSpread) * Math.SQRT2;
+  const spreadRange = p.glowSpread * Math.SQRT2;
+  const spreadInv = spreadRange > 0.001 ? 1 / spreadRange : 0;
+  const edgeWInv = p.edgeWidth > 0 ? 1 / p.edgeWidth : 0;
+  const stepX = (2 * p.halfW) / size;
+  const stepY = (2 * p.halfH) / size;
+  const invW = 1 / p.halfW;
+  const invH = 1 / p.halfH;
+  const dome = p.domeDepth > 0;
+  const splaying = p.splay < 1;
+  const proxHalf = 0.5 * Math.min(p.halfW, p.halfH);
+  const proxInv = proxHalf > 0 ? 1 / proxHalf : 0;
+  let colSlope: Float32Array | null = null;
+  let domeRy = 0;
+  let domeScaleY = 0;
+  if (dome) {
+    const dc = computeDomeConstants(p.domeDepth, p.halfW, p.halfH);
+    domeRy = dc.ry;
+    domeScaleY = dc.scaleY;
+    colSlope = new Float32Array(half);
+    const lim = 0.999 * dc.rx;
+    for (let col = 0; col < half; col++) {
+      const px = p.halfW - (col + 0.5) * stepX;
+      const s = px < lim ? px : lim;
+      colSlope[col] = (s / Math.sqrt(dc.rx * dc.rx - s * s)) * dc.scaleX;
+    }
+  }
+  for (let row = 0; row < half; row++) {
+    const py = p.halfH - (row + 0.5) * stepY;
+    const cornerDy = py - p.halfH + r0;
+    const innerDy = py - innerHalfH + innerR;
+    const yLin = Math.min(py * invH, 1);
+    const domeY = dome ? domeGradient(py, domeRy, domeScaleY) : yLin;
+    const proxY = splaying ? Math.max(0, 1 - (p.halfH - py) * proxInv) : 0;
+    const mr = size - 1 - row;
+    for (let col = 0; col < half; col++) {
+      const px = p.halfW - (col + 0.5) * stepX;
+      const mc = size - 1 - col;
+      const cornerDx = px - p.halfW + r0;
+      const ux = Math.max(cornerDx, 0);
+      const uy = Math.max(cornerDy, 0);
+      const sd =
+        Math.hypot(ux, uy) + Math.min(Math.max(cornerDx, cornerDy), 0) - r0;
+      const i00 = (row * size + col) * 4;
+      const i10 = (row * size + mc) * 4;
+      const i01 = (mr * size + col) * 4;
+      const i11 = (mr * size + mc) * 4;
+      if (sdfBoundary && sd >= 0) {
+        for (const i of [i00, i10, i01, i11]) {
+          data[i] = 128;
+          data[i + 1] = 128;
+          data[i + 2] = 128;
+          data[i + 3] = 255;
+        }
+        continue;
+      }
+      let dx = colSlope ? colSlope[col] : Math.min(px * invW, 1);
+      let dy = domeY;
+      if (splaying) {
+        const k = 1 - p.splay;
+        const ty = proxY * k;
+        const tx = Math.max(0, 1 - (p.halfW - px) * proxInv) * k;
+        if (tx > 0.001 || ty > 0.001) {
+          const ox = dx;
+          const oy = dy;
+          dx = ox * (1 - ty);
+          dy = oy * (1 - tx);
+          const before = Math.hypot(ox, oy);
+          const after = Math.hypot(dx, dy);
+          if (after > 0.001) {
+            const f = before / after;
+            dx *= f;
+            dy *= f;
+          }
+        }
+      }
+      let gate = 1;
+      if (edgeFalloff) {
+        const innerDx = px - innerHalfW + innerR;
+        const iux = Math.max(innerDx, 0);
+        const iuy = Math.max(innerDy, 0);
+        const isd =
+          Math.hypot(iux, iuy) +
+          Math.min(Math.max(innerDx, innerDy), 0) -
+          innerR;
+        gate = 0.5 * (1 + erf(isd * falloffInv));
+      }
+      const hx = 0.5 * dx * gate;
+      const hy = 0.5 * dy * gate;
+      const rPos = ((0.5 + hx) * 255 + 0.5) | 0;
+      const rNeg = ((0.5 - hx) * 255 + 0.5) | 0;
+      const gPos = ((0.5 + hy) * 255 + 0.5) | 0;
+      const gNeg = ((0.5 - hy) * 255 + 0.5) | 0;
+      let b1 = 128;
+      let b2 = 128;
+      if (specOn) {
+        const sa = Math.min(px * invW, 1) * cosT;
+        const sb = yLin * sinT;
+        const f1 = Math.abs(sa + sb);
+        const f2 = Math.abs(sa - sb);
+        let s1 = 0;
+        let s2 = 0;
+        if (p.glowStrength > 0) {
+          s1 +=
+            p.glowStrength *
+            clamp01((f1 - spreadStart) * spreadInv) ** p.glowExponent *
+            gate;
+          s2 +=
+            p.glowStrength *
+            clamp01((f2 - spreadStart) * spreadInv) ** p.glowExponent *
+            gate;
+        }
+        if (p.edgeStrength > 0) {
+          const rim = sd < 0 ? Math.max(0, 1 + sd * edgeWInv) : 0;
+          s1 += p.edgeStrength * rim * f1 ** p.edgeExponent;
+          s2 += p.edgeStrength * rim * f2 ** p.edgeExponent;
+        }
+        if (s1 > 1) {
+          s1 = 1;
+        }
+        if (s2 > 1) {
+          s2 = 1;
+        }
+        b1 = (127 * s1 + 128 + 0.5) | 0;
+        b2 = (127 * s2 + 128 + 0.5) | 0;
+      }
+      data[i00] = rPos;
+      data[i00 + 1] = gPos;
+      data[i00 + 2] = b1;
+      data[i00 + 3] = 255;
+      data[i10] = rNeg;
+      data[i10 + 1] = gPos;
+      data[i10 + 2] = b2;
+      data[i10 + 3] = 255;
+      data[i01] = rPos;
+      data[i01 + 1] = gNeg;
+      data[i01 + 2] = b2;
+      data[i01 + 3] = 255;
+      data[i11] = rNeg;
+      data[i11 + 1] = gNeg;
+      data[i11 + 2] = b1;
+      data[i11 + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+const maskCache = new Map<string, string>();
+
+function roundedMaskHref(
+  w: number,
+  h: number,
+  rx: number,
+  ry: number
+): string {
+  const cw = Math.max(1, Math.round(w));
+  const ch = Math.max(1, Math.round(h));
+  const crx = Math.max(0, Math.min(rx, cw / 2));
+  const cry = Math.max(0, Math.min(ry, ch / 2));
+  const key = `${cw}|${ch}|${crx}|${cry}`;
+  const cached = maskCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return "";
+  }
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.roundRect(0, 0, cw, ch, [{ x: crx, y: cry }]);
+  ctx.fill();
+  const url = canvas.toDataURL();
+  maskCache.set(key, url);
+  if (maskCache.size > MAP_CACHE_LIMIT) {
+    const first = maskCache.keys().next().value;
+    if (first !== undefined) {
+      maskCache.delete(first);
+    }
+  }
+  return url;
+}
+
+let emptyHref: string | null = null;
+
+function placeholderHref(): string {
+  if (emptyHref === null && typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    emptyHref = canvas.toDataURL();
+  }
+  return emptyHref ?? "";
+}
+
+const isWebKitOnly =
+  typeof navigator !== "undefined" &&
+  /AppleWebKit/.test(navigator.userAgent) &&
+  !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg|OPR|Firefox)/.test(
+    navigator.userAgent
+  );
+
+function isSafariBrowser(): boolean {
+  return isWebKitOnly;
+}
+
+function readForcedRenderer(): "webgl" | "svg" | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const query = new URLSearchParams(window.location.search).get(
+      "glassRenderer"
+    );
+    if (query === "webgl" || query === "svg") {
+      return query;
+    }
+    const flag = (window as unknown as { __GLASS_RENDERER__?: string })
+      .__GLASS_RENDERER__;
+    if (flag === "webgl" || flag === "svg") {
+      return flag;
+    }
+    const stored = window.localStorage?.getItem("glassRenderer");
+    if (stored === "webgl" || stored === "svg") {
+      return stored;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+const forcedRenderer = readForcedRenderer();
+
+function useGlassDark(): boolean {
+  const [dark, setDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return dark;
+}
+
+const subscribeHydration = () => () => {};
+
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeHydration,
+    () => true,
+    () => false
+  );
+}
+
+interface GlassProps extends ComponentProps<"div"> {
+  blur?: number;
+  chroma?: number;
+  depth?: number;
+  domeDepth?: number;
+  dynamicsRef?: RefObject<GlassDynamics | null>;
+  edgeExponent?: number;
+  edgeFalloff?: boolean;
+  edgeHighlight?: number;
+  edgeWidth?: number;
+  glow?: number;
+  glowExponent?: number;
+  glowSpread?: number;
+  lens: ReactNode;
+  mapSize?: number;
+  maxDisplacement?: number;
+  resolution?: number;
+  reveal?: boolean;
+  scaleX?: number;
+  scaleY?: number;
+  sdfBoundary?: boolean;
+  splay?: number;
+  specularAngle?: number;
+  specularDark?: boolean;
+  specularStrength?: number;
+  tint?: number;
+  tintBlur?: number;
+  tintColor?: string;
+}
+
+interface SlotEls {
+  feImage: SVGFEImageElement | null;
+  feScale: SVGFEColorMatrixElement | null;
+  feFlood: SVGFEFloodElement | null;
+  feMask: SVGFEImageElement | null;
+  backdrop: HTMLDivElement | null;
+  hrefInit: boolean;
+  lastKey: string;
+  lastMaskKey: string;
+  lastMatrix: string;
+  lastX: string;
+  lastY: string;
+  lastW: string;
+  lastH: string;
+  lastWidth: number;
+  lastHeight: number;
+  lastRadius: number;
+  lastBackdrop: string;
+  prevW: number;
+  prevH: number;
+}
+
+function makeSlot(): SlotEls {
+  return {
+    feImage: null,
+    feScale: null,
+    feFlood: null,
+    feMask: null,
+    backdrop: null,
+    hrefInit: false,
+    lastKey: "",
+    lastMaskKey: "",
+    lastMatrix: "",
+    lastX: "",
+    lastY: "",
+    lastW: "",
+    lastH: "",
+    lastWidth: 0,
+    lastHeight: 0,
+    lastRadius: 0,
+    lastBackdrop: "",
+    prevW: 0,
+    prevH: 0,
+  };
+}
+
+interface EngineParams {
+  depth: number;
+  domeDepth: number;
+  splay: number;
+  specularAngle: number;
+  specularStrength: number;
+  specularDark: boolean;
+  glow: number;
+  glowSpread: number;
+  glowExponent: number;
+  edgeHighlight: number;
+  edgeWidth: number;
+  edgeExponent: number;
+  mapSize: number;
+  scaleMax: number;
+  maxDisplacement: number;
+  chroma: number;
+  blur: number;
+  sdfBoundary: boolean;
+  edgeFalloff: boolean;
+  kx: number;
+  ky: number;
+  resolution: number;
+  tint: number;
+  tintBlur: number;
+  tintRGB: string;
+}
+
+const OVERRIDE_KEYS = [
+  "depth",
+  "domeDepth",
+  "splay",
+  "specularAngle",
+  "glow",
+  "glowSpread",
+  "glowExponent",
+  "edgeHighlight",
+  "edgeWidth",
+  "edgeExponent",
+] as const;
+
+type OverrideKey = (typeof OVERRIDE_KEYS)[number];
+
+function markOverrides(
+  mark: HTMLElement
+): Partial<Record<OverrideKey, number>> & { mul: number } {
+  const out: Partial<Record<OverrideKey, number>> & { mul: number } = {
+    mul: 1,
+  };
+  for (const key of OVERRIDE_KEYS) {
+    const raw = mark.dataset[`glass${key[0].toUpperCase()}${key.slice(1)}`];
+    if (raw !== undefined) {
+      const v = Number(raw);
+      if (!Number.isNaN(v)) {
+        out[key] = v;
+      }
+    }
+  }
+  const mulRaw = mark.dataset.glassMul;
+  if (mulRaw !== undefined) {
+    const v = Number(mulRaw);
+    if (!Number.isNaN(v)) {
+      out.mul = clamp01(v);
+    }
+  }
+  return out;
+}
+
+function axisMatrix(kx: number, ky: number): string {
+  return `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 1 0`;
+}
+
+function Glass({
+  scaleX = 0.1,
+  scaleY = 0.1,
+  chroma = 0.2,
+  depth = 6,
+  domeDepth = 0,
+  splay = 1,
+  blur = 0,
+  glow = 0.12,
+  glowSpread = 1,
+  glowExponent = 1.5,
+  edgeHighlight = 0.3,
+  edgeWidth = 3,
+  edgeExponent = 1.5,
+  specularStrength = 1,
+  specularAngle = 45,
+  specularDark = false,
+  sdfBoundary = true,
+  edgeFalloff = true,
+  mapSize = 256,
+  maxDisplacement = Number.POSITIVE_INFINITY,
+  resolution = 1,
+  reveal = false,
+  tint = 0,
+  tintBlur = 12,
+  tintColor,
+  dynamicsRef,
+  lens,
+  className,
+  children,
+  ...props
+}: GlassProps) {
+  const dark = useGlassDark();
+  const tintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
+  const baseId = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const filterId = `${baseId}-glass`;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const lensLayerRef = useRef<HTMLDivElement | null>(null);
+  const filterRef = useRef<SVGFilterElement | null>(null);
+  const feBlurRef = useRef<SVGFEGaussianBlurElement | null>(null);
+  const dispRefs = useRef<(SVGFEDisplacementMapElement | null)[]>([
+    null,
+    null,
+    null,
+  ]);
+  const slotsRef = useRef<SlotEls[]>(Array.from({ length: SLOTS }, makeSlot));
+  const mapCache = useRef(new Map<string, string>());
+  const decodedUrls = useRef(new Set<string>());
+  const pendingUrls = useRef(new Set<string>());
+  const version = useRef(0);
+  const lastScale = useRef(-1);
+  const [slotCount, setSlotCount] = useState(1);
+  const slotCountRef = useRef(1);
+  slotCountRef.current = slotCount;
+
+  const scaleMax = Math.max(scaleX, scaleY, 1e-4);
+  const kx = scaleX / scaleMax;
+  const ky = scaleY / scaleMax;
+
+  const hydrated = useHydrated();
+  const rasterKind = isRasterChild(children);
+  const useWebGL =
+    hydrated &&
+    (forcedRenderer === "svg"
+      ? false
+      : rasterKind !== null &&
+        webglAvailable() &&
+        (forcedRenderer === "webgl" || isSafariBrowser()));
+
+  const params = useRef<EngineParams>({
+    depth,
+    domeDepth,
+    splay,
+    specularAngle,
+    specularStrength,
+    specularDark,
+    glow,
+    glowSpread,
+    glowExponent,
+    edgeHighlight,
+    edgeWidth,
+    edgeExponent,
+    mapSize,
+    scaleMax,
+    maxDisplacement,
+    chroma,
+    blur,
+    sdfBoundary,
+    edgeFalloff,
+    kx,
+    ky,
+    resolution,
+    tint: clamp01(tint),
+    tintBlur,
+    tintRGB,
+  });
+  params.current = {
+    depth,
+    domeDepth,
+    splay,
+    specularAngle,
+    specularStrength,
+    specularDark,
+    glow,
+    glowSpread,
+    glowExponent,
+    edgeHighlight,
+    edgeWidth,
+    edgeExponent,
+    mapSize,
+    scaleMax,
+    maxDisplacement,
+    chroma,
+    blur,
+    sdfBoundary,
+    edgeFalloff,
+    kx,
+    ky,
+    resolution,
+    tint: clamp01(tint),
+    tintBlur,
+    tintRGB,
+  };
+
+  const attach = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || typeof window === "undefined") {
+        return;
+      }
+      rootRef.current = node;
+      if (useWebGL) {
+        return;
+      }
+      let raf = 0;
+      let lastChroma = -1;
+      let lastBlurStd = -1;
+      const collapse = (slot: SlotEls) => {
+        if (slot.lastW === "0.001") {
+          return;
+        }
+        for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
+          el?.setAttribute("x", "0");
+          el?.setAttribute("y", "0");
+          el?.setAttribute("width", "0.001");
+          el?.setAttribute("height", "0.001");
+        }
+        if (slot.backdrop) {
+          slot.backdrop.style.display = "none";
+          slot.lastBackdrop = "";
+        }
+        slot.lastX = "0";
+        slot.lastY = "0";
+        slot.lastW = "0.001";
+        slot.lastH = "0.001";
+        slot.lastWidth = 0;
+        slot.lastHeight = 0;
+      };
+      const getMap = (key: string, mp: MapParams): string => {
+        const cached = mapCache.current.get(key);
+        if (cached !== undefined) {
+          return cached;
+        }
+        const url = generateLensMap(mp) ?? "";
+        mapCache.current.set(key, url);
+        if (mapCache.current.size > MAP_CACHE_LIMIT) {
+          const first = mapCache.current.keys().next().value;
+          if (first !== undefined) {
+            mapCache.current.delete(first);
+          }
+        }
+        return url;
+      };
+      const preload = (url: string): boolean => {
+        if (!url) {
+          return false;
+        }
+        if (decodedUrls.current.has(url)) {
+          return true;
+        }
+        if (pendingUrls.current.has(url)) {
+          return false;
+        }
+        pendingUrls.current.add(url);
+        const img = new Image();
+        img.onload = () => {
+          pendingUrls.current.delete(url);
+          if (decodedUrls.current.size > 256) {
+            decodedUrls.current.clear();
+          }
+          decodedUrls.current.add(url);
+        };
+        img.onerror = () => {
+          pendingUrls.current.delete(url);
+        };
+        img.src = url;
+        return false;
+      };
+      const tick = () => {
+        const layer = lensLayerRef.current;
+        for (const slot of slotsRef.current) {
+          if (!slot.hrefInit && slot.feImage) {
+            if (!slot.feImage.getAttribute("href")) {
+              slot.feImage.setAttribute("href", placeholderHref());
+            }
+            slot.hrefInit = true;
+          }
+        }
+        const p = params.current;
+        if (p.chroma !== lastChroma) {
+          lastChroma = p.chroma;
+          lastScale.current = -1;
+        }
+        const dyn = dynamicsRef?.current ?? undefined;
+        const zoom = dyn?.zoom ?? 1;
+        const depthMul = dyn?.depthMul ?? 1;
+        const G = p.resolution;
+        let mapChanged = false;
+        let rectChanged = false;
+        let hasLens = false;
+        let activeCount = 0;
+        let base: DOMRect | null = null;
+        if (layer) {
+          base = node.getBoundingClientRect();
+          const marks = layer.querySelectorAll<HTMLElement>("[data-glass-lens]");
+          for (let i = 0; i < SLOTS; i++) {
+            const slot = slotsRef.current[i];
+            const mark = marks[i];
+            if (!mark) {
+              collapse(slot);
+              continue;
+            }
+            const r = mark.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) {
+              collapse(slot);
+              continue;
+            }
+            hasLens = true;
+            activeCount += 1;
+            const ov = markOverrides(mark);
+            const tintRaw = mark.dataset.glassTint;
+            const tintNum = tintRaw === undefined ? Number.NaN : Number(tintRaw);
+            const lensTint = Number.isNaN(tintNum) ? p.tint : clamp01(tintNum);
+            const tintEff = 0.5 * lensTint;
+            const md = i === 0 ? dyn?.mapDims : undefined;
+            const rectW = Math.round(r.width * 2) / 2;
+            const rectH = Math.round(r.height * 2) / 2;
+            const genW = md ? Math.round(md.halfW * 4) / 2 : rectW;
+            const genH = md ? Math.round(md.halfH * 4) / 2 : rectH;
+            const resizing =
+              Math.abs(r.width - slot.prevW) > 0.3 ||
+              Math.abs(r.height - slot.prevH) > 0.3;
+            slot.prevW = r.width;
+            slot.prevH = r.height;
+            const radiusParts = getComputedStyle(mark)
+              .borderTopLeftRadius.split(" ")
+              .map((v) => Math.round(Number.parseFloat(v) * 2) / 2 || 0);
+            const cssRadius = radiusParts[0] ?? 0;
+            const cssRadiusY = radiusParts[1] ?? cssRadius;
+            const radius = md ? Math.round(md.radius * 2) / 2 : cssRadius;
+            const sizeChanged =
+              Math.abs(genW - slot.lastWidth) >= 0.5 ||
+              Math.abs(genH - slot.lastHeight) >= 0.5 ||
+              Math.abs(radius - slot.lastRadius) >= 0.5;
+            const unitsPerPx = md ? genW / Math.max(rectW, 1) : 1;
+            const baseDepth = ov.depth ?? p.depth;
+            const baseDome = ov.domeDepth ?? p.domeDepth;
+            const baseEdgeW = ov.edgeWidth ?? p.edgeWidth;
+            const effDepth =
+              Math.round(baseDepth * depthMul * unitsPerPx * 10) / 10;
+            const effDome = Math.round(baseDome * unitsPerPx * 10) / 10;
+            const effEdgeW = Math.round(baseEdgeW * unitsPerPx * 10) / 10;
+            const splayV = ov.splay ?? p.splay;
+            const angleV = ov.specularAngle ?? p.specularAngle;
+            const glowV = ov.glow ?? p.glow;
+            const glowSpreadV = ov.glowSpread ?? p.glowSpread;
+            const glowExpV = ov.glowExponent ?? p.glowExponent;
+            const edgeV = ov.edgeHighlight ?? p.edgeHighlight;
+            const edgeExpV = ov.edgeExponent ?? p.edgeExponent;
+            const key = `${genW}x${genH}r${radius}d${effDepth}o${effDome}p${splayV}a${angleV}g${glowV},${glowSpreadV},${glowExpV}e${edgeV},${effEdgeW},${edgeExpV}m${p.mapSize}f${p.sdfBoundary ? 1 : 0}${p.edgeFalloff ? 1 : 0}`;
+            if (!slot.lastKey || (!resizing && (sizeChanged || key !== slot.lastKey))) {
+              const url = getMap(key, {
+                halfW: genW / 2,
+                halfH: genH / 2,
+                radius,
+                depth: effDepth,
+                domeDepth: effDome,
+                splay: splayV,
+                specularAngle: angleV,
+                glowStrength: glowV,
+                glowSpread: glowSpreadV,
+                glowExponent: glowExpV,
+                edgeStrength: edgeV,
+                edgeWidth: effEdgeW,
+                edgeExponent: edgeExpV,
+                size: p.mapSize,
+                sdfBoundary: p.sdfBoundary,
+                edgeFalloff: p.edgeFalloff,
+              });
+              if (preload(url)) {
+                slot.feImage?.setAttribute("href", url);
+                slot.lastKey = key;
+                slot.lastWidth = genW;
+                slot.lastHeight = genH;
+                slot.lastRadius = radius;
+                mapChanged = true;
+              }
+            }
+            const tintFade = 1 - 0.85 * tintEff;
+            const matrix = axisMatrix(
+              p.kx * ov.mul * tintFade,
+              p.ky * ov.mul * tintFade
+            );
+            if (slot.lastMatrix !== matrix) {
+              slot.feScale?.setAttribute("values", matrix);
+              slot.lastMatrix = matrix;
+              rectChanged = true;
+            }
+            const fx = Math.round((r.left - base.left) * 2) / 2;
+            const fy = Math.round((r.top - base.top) * 2) / 2;
+            const bw = base.width || 1;
+            const bh = base.height || 1;
+            const sx = String((fx + EDGE_BIAS) / bw);
+            const sy = String((fy + EDGE_BIAS) / bh);
+            const sw = String(Math.max(0, rectW - 2 * EDGE_BIAS) / bw);
+            const sh = String(Math.max(0, rectH - 2 * EDGE_BIAS) / bh);
+            if (
+              slot.lastX !== sx ||
+              slot.lastY !== sy ||
+              slot.lastW !== sw ||
+              slot.lastH !== sh
+            ) {
+              for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
+                el?.setAttribute("x", sx);
+                el?.setAttribute("y", sy);
+                el?.setAttribute("width", sw);
+                el?.setAttribute("height", sh);
+              }
+              slot.lastX = sx;
+              slot.lastY = sy;
+              slot.lastW = sw;
+              slot.lastH = sh;
+              rectChanged = true;
+            }
+            if (slot.feMask) {
+              const maskKey = `${rectW}|${rectH}|${cssRadius}|${cssRadiusY}|${G}`;
+              if (!slot.lastMaskKey || (!resizing && slot.lastMaskKey !== maskKey)) {
+                const maskUrl = roundedMaskHref(
+                  (rectW - 2 * EDGE_BIAS) * G,
+                  (rectH - 2 * EDGE_BIAS) * G,
+                  cssRadius * G,
+                  cssRadiusY * G
+                );
+                if (preload(maskUrl)) {
+                  slot.feMask.setAttribute("href", maskUrl);
+                  slot.lastMaskKey = maskKey;
+                  mapChanged = true;
+                }
+              }
+            }
+            const bd = slot.backdrop;
+            if (bd) {
+              const blurPx = Math.max(p.blur, tintEff * p.tintBlur);
+              const filter =
+                blurPx > 0.05
+                  ? `blur(${blurPx}px) saturate(${1 + 0.5 * tintEff})`
+                  : "none";
+              const bg =
+                tintEff > 0.001
+                  ? `rgba(${p.tintRGB},${Math.round(tintEff * 700) / 1000})`
+                  : "transparent";
+              const bdKey = `${fx},${fy},${rectW},${rectH},${cssRadius},${filter},${bg}`;
+              if (slot.lastBackdrop !== bdKey) {
+                bd.style.transform = `translate3d(${fx}px, ${fy}px, 0)`;
+                bd.style.width = `${rectW}px`;
+                bd.style.height = `${rectH}px`;
+                bd.style.borderRadius = `${cssRadius}px`;
+                bd.style.backdropFilter = filter;
+                bd.style.setProperty("-webkit-backdrop-filter", filter);
+                bd.style.background = bg;
+                bd.style.display = "block";
+                slot.lastBackdrop = bdKey;
+              }
+            }
+          }
+        }
+        const desiredSlots = Math.min(Math.max(activeCount, 1), SLOTS);
+        if (desiredSlots !== slotCountRef.current) {
+          slotCountRef.current = desiredSlots;
+          setSlotCount(desiredSlots);
+        }
+        if (hasLens && base) {
+          const blurStd = p.blur / (base.width || 1);
+          if (blurStd !== lastBlurStd) {
+            lastBlurStd = blurStd;
+            feBlurRef.current?.setAttribute("stdDeviation", String(blurStd));
+          }
+          const dispScale = Math.min(
+            p.scaleMax * zoom,
+            p.maxDisplacement / (base.width || 1)
+          );
+          if (Math.abs(dispScale - lastScale.current) > 0.0001) {
+            lastScale.current = dispScale;
+            const c = p.chroma;
+            const scales =
+              c > 0
+                ? [dispScale * (1 + 0.2 * c), dispScale * (1 + 0.1 * c), dispScale]
+                : [dispScale];
+            dispRefs.current.forEach((el, i) => {
+              if (el && scales[i] !== undefined) {
+                el.setAttribute("scale", String(scales[i]));
+              }
+            });
+            rectChanged = true;
+          }
+        }
+        if (
+          (mapChanged || (isWebKitOnly && rectChanged)) &&
+          filterRef.current &&
+          contentRef.current
+        ) {
+          version.current += 1;
+          const id = `${filterId}-v${version.current}`;
+          filterRef.current.id = id;
+          contentRef.current.style.filter = `url(#${id})`;
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    },
+    [filterId, dynamicsRef, useWebGL]
+  );
+
+  useEffect(() => {
+    if (!useWebGL || typeof window === "undefined") {
+      return;
+    }
+    const node = rootRef.current;
+    const lensLayer = lensLayerRef.current;
+    const sourceEl =
+      contentRef.current?.querySelector<
+        HTMLVideoElement | HTMLCanvasElement | HTMLImageElement
+      >("video,canvas,img") ?? null;
+    if (!node || !lensLayer || !sourceEl) {
+      return;
+    }
+    const renderer = new GlassWebGLRenderer();
+    return renderer.attach(node, lensLayer, sourceEl, {
+      getParams: () => params.current,
+      getDynamics: () => dynamicsRef?.current ?? undefined,
+      reveal,
+    });
+  }, [useWebGL, reveal, dynamicsRef]);
+
+  const source = blur > 0 ? "blurred" : "SourceGraphic";
+  const slotIndexes = Array.from({ length: SLOTS }, (_, i) => i);
+  const renderSlots = Array.from({ length: slotCount }, (_, i) => i);
+  const axisValues = axisMatrix(kx, ky);
+
+  return (
+    <div className={cn("relative", className)} ref={attach} {...props}>
+      <div
+        className="relative h-full w-full"
+        ref={contentRef}
+        style={{
+          ...(useWebGL
+            ? { visibility: reveal ? "hidden" : "visible" }
+            : { filter: `url(#${filterId})`, willChange: "filter" }),
+          ...(resolution !== 1
+            ? {
+                width: `${resolution * 100}%`,
+                height: `${resolution * 100}%`,
+                transform: `scale(${1 / resolution})`,
+                transformOrigin: "0 0",
+              }
+            : null),
+        }}
+      >
+        {resolution !== 1 ? (
+          <div
+            style={{
+              width: `${100 / resolution}%`,
+              height: `${100 / resolution}%`,
+              transform: `scale(${resolution})`,
+              transformOrigin: "0 0",
+            }}
+          >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        {slotIndexes.map((i) => (
+          <div
+            key={`bd-${i}`}
+            ref={(el) => {
+              slotsRef.current[i].backdrop = el;
+            }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "none",
+              willChange: "backdrop-filter, transform",
+            }}
+          />
+        ))}
+      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        ref={lensLayerRef}
+      >
+        {lens}
+      </div>
+      {!useWebGL && (
+        <svg aria-hidden="true" className="absolute h-0 w-0" focusable="false">
+          <defs>
+          <filter
+            colorInterpolationFilters="sRGB"
+            filterUnits="objectBoundingBox"
+            height="1"
+            id={filterId}
+            primitiveUnits="objectBoundingBox"
+            ref={filterRef}
+            width="1"
+            x="0"
+            y="0"
+          >
+            <feFlood
+              floodColor="rgb(128,128,128)"
+              floodOpacity="1"
+              result="mapBg"
+            />
+            {renderSlots.map((i) => (
+              <feImage
+                key={`img-${i}`}
+                preserveAspectRatio="none"
+                ref={(el) => {
+                  slotsRef.current[i].feImage = el;
+                }}
+                result={`raw${i}`}
+              />
+            ))}
+            {renderSlots.map((i) => (
+              <feColorMatrix
+                in={`raw${i}`}
+                key={`scale-${i}`}
+                ref={(el) => {
+                  slotsRef.current[i].feScale = el;
+                }}
+                result={`scaled${i}`}
+                type="matrix"
+                values={axisValues}
+              />
+            ))}
+            {renderSlots.map((i) => (
+              <feComposite
+                in={`scaled${i}`}
+                in2={i === 0 ? "mapBg" : `m${i - 1}`}
+                key={`mc-${i}`}
+                operator="over"
+                result={i === slotCount - 1 ? "map" : `m${i}`}
+              />
+            ))}
+            {blur > 0 && (
+              <feGaussianBlur
+                in="SourceGraphic"
+                ref={feBlurRef}
+                result="blurred"
+                stdDeviation="0"
+              />
+            )}
+            {chroma > 0 ? (
+              <>
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[0] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dR"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dR"
+                  result="cR"
+                  type="matrix"
+                  values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                />
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[1] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dG"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dG"
+                  result="cG"
+                  type="matrix"
+                  values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                />
+                <feDisplacementMap
+                  in={source}
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[2] = el;
+                    if (el && !el.hasAttribute("scale")) {
+                      el.setAttribute("scale", "0");
+                      lastScale.current = -1;
+                    }
+                  }}
+                  result="dB"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+                <feColorMatrix
+                  in="dB"
+                  result="cB"
+                  type="matrix"
+                  values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+                />
+                <feComposite
+                  in="cR"
+                  in2="cG"
+                  k1="0"
+                  k2="1"
+                  k3="1"
+                  k4="0"
+                  operator="arithmetic"
+                  result="cRG"
+                />
+                <feComposite
+                  in="cRG"
+                  in2="cB"
+                  k1="0"
+                  k2="1"
+                  k3="1"
+                  k4="0"
+                  operator="arithmetic"
+                  result="lensResult"
+                />
+              </>
+            ) : (
+              <feDisplacementMap
+                in={source}
+                in2="map"
+                ref={(el) => {
+                  dispRefs.current[0] = el;
+                  if (el && !el.hasAttribute("scale")) {
+                    el.setAttribute("scale", "0");
+                    lastScale.current = -1;
+                  }
+                }}
+                result="lensResult"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            )}
+            {(glow > 0 || edgeHighlight > 0) &&
+              (specularDark ? (
+                <>
+                  <feColorMatrix
+                    in="map"
+                    result="spec"
+                    type="matrix"
+                    values={`0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 ${-specularStrength} 0 ${1 + (128 * specularStrength) / 255}  0 0 0 0 1`}
+                  />
+                  <feComposite
+                    in="spec"
+                    in2="lensResult"
+                    k1="1"
+                    k2="0"
+                    k3="0"
+                    k4="0"
+                    operator="arithmetic"
+                    result="lensResult"
+                  />
+                </>
+              ) : (
+                <>
+                  <feColorMatrix
+                    in="map"
+                    result="spec"
+                    type="matrix"
+                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 -0.5019607843"
+                  />
+                  <feComposite
+                    in="spec"
+                    in2="lensResult"
+                    k1="0"
+                    k2={specularStrength}
+                    k3="1"
+                    k4="0"
+                    operator="arithmetic"
+                    result="lensResult"
+                  />
+                </>
+              ))}
+            {renderSlots.map((i) =>
+              reveal ? (
+                <feImage
+                  height="0.001"
+                  key={`mask-${i}`}
+                  preserveAspectRatio="none"
+                  ref={(el) => {
+                    slotsRef.current[i].feMask = el;
+                  }}
+                  result={`mask${i}`}
+                  width="0.001"
+                  x="0"
+                  y="0"
+                />
+              ) : (
+                <feFlood
+                  floodColor="black"
+                  floodOpacity="1"
+                  height="0.001"
+                  key={`mask-${i}`}
+                  ref={(el) => {
+                    slotsRef.current[i].feFlood = el;
+                  }}
+                  result={`mask${i}`}
+                  width="0.001"
+                  x="0"
+                  y="0"
+                />
+              )
+            )}
+            <feMerge result="unionMask">
+              {renderSlots.map((i) => (
+                <feMergeNode in={`mask${i}`} key={`mn-${i}`} />
+              ))}
+            </feMerge>
+            {reveal ? (
+              <feComposite in="lensResult" in2="unionMask" operator="in" />
+            ) : (
+              <>
+                <feComposite
+                  in="lensResult"
+                  in2="unionMask"
+                  operator="in"
+                  result="lensClipped"
+                />
+                <feComposite
+                  in="SourceGraphic"
+                  in2="unionMask"
+                  operator="out"
+                  result="holedSG"
+                />
+                <feComposite in="lensClipped" in2="holedSG" operator="over" />
+              </>
+            )}
+          </filter>
+        </defs>
+        </svg>
+      )}
+    </div>
+  );
+}
+
+export { Glass, generateLensMap, isSafariBrowser, useGlassDark, useHydrated };
+export type { GlassDynamics, MapParams };
+```
+
+#### `glass-motion.ts`
+
+```tsx
+type Subscriber = (value: number) => void;
+
+const VELOCITY_RESET_MS = 80;
+
+class MotionValue {
+  private current: number;
+  private prevTime = 0;
+  private velocityValue = 0;
+  private subs = new Set<Subscriber>();
+  private cancelFn: (() => void) | null = null;
+
+  constructor(initial: number) {
+    this.current = initial;
+  }
+
+  get(): number {
+    return this.current;
+  }
+
+  getVelocity(): number {
+    if (performance.now() - this.prevTime > VELOCITY_RESET_MS) {
+      return 0;
+    }
+    return this.velocityValue;
+  }
+
+  set(next: number, timestamp = performance.now()) {
+    const elapsed = timestamp - this.prevTime;
+    if (elapsed > VELOCITY_RESET_MS) {
+      this.velocityValue = 0;
+    } else if (elapsed > 0) {
+      const dt = Math.min(Math.max(elapsed, 8), 30);
+      this.velocityValue = ((next - this.current) / dt) * 1000;
+    }
+    this.prevTime = timestamp;
+    this.current = next;
+    for (const fn of this.subs) {
+      fn(next);
+    }
+  }
+
+  jump(next: number) {
+    this.stop();
+    this.velocityValue = 0;
+    this.prevTime = performance.now();
+    this.current = next;
+    for (const fn of this.subs) {
+      fn(next);
+    }
+  }
+
+  on(fn: Subscriber): () => void {
+    this.subs.add(fn);
+    return () => this.subs.delete(fn);
+  }
+
+  setCancel(fn: (() => void) | null) {
+    this.cancelFn = fn;
+  }
+
+  stop() {
+    this.cancelFn?.();
+    this.cancelFn = null;
+  }
+}
+
+function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (t: number) => ((ax * t + bx) * t + cx) * t;
+  const sampleY = (t: number) => ((ay * t + by) * t + cy) * t;
+  const sampleDX = (t: number) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number) => {
+    if (x <= 0) {
+      return 0;
+    }
+    if (x >= 1) {
+      return 1;
+    }
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const err = sampleX(t) - x;
+      if (Math.abs(err) < 1e-6) {
+        return sampleY(t);
+      }
+      const d = sampleDX(t);
+      if (Math.abs(d) < 1e-6) {
+        break;
+      }
+      t -= err / d;
+    }
+    let lo = 0;
+    let hi = 1;
+    t = x;
+    while (hi - lo > 1e-6) {
+      if (sampleX(t) < x) {
+        lo = t;
+      } else {
+        hi = t;
+      }
+      t = (lo + hi) / 2;
+    }
+    return sampleY(t);
+  };
+}
+
+const glassEase = cubicBezier(0.22, 1.15, 0.36, 1.06);
+
+const PRESS_DURATION = 0.32;
+const RELEASE_DURATION = 0.52;
+const TRAVEL_DURATION = 0.6;
+
+function tween(
+  value: MotionValue,
+  to: number,
+  duration: number,
+  ease: (t: number) => number,
+  onComplete?: () => void
+): () => void {
+  value.stop();
+  if (duration <= 0) {
+    value.jump(to);
+    onComplete?.();
+    return () => undefined;
+  }
+  const from = value.get();
+  const start = performance.now();
+  let raf = 0;
+  const step = (now: number) => {
+    const t = Math.min((now - start) / (duration * 1000), 1);
+    value.set(from + (to - from) * ease(t), now);
+    if (t < 1) {
+      raf = requestAnimationFrame(step);
+    } else {
+      value.setCancel(null);
+      onComplete?.();
+    }
+  };
+  raf = requestAnimationFrame(step);
+  const cancel = () => cancelAnimationFrame(raf);
+  value.setCancel(cancel);
+  return cancel;
+}
+
+interface SpringOptions {
+  stiffness: number;
+  damping: number;
+  restDelta?: number;
+  restSpeed?: number;
+}
+
+class SpringDriver {
+  private vel = 0;
+  private raf = 0;
+  private last = 0;
+  private running = false;
+  private readonly restDelta: number;
+  private readonly restSpeed: number;
+
+  constructor(
+    private readonly value: MotionValue,
+    private readonly options: SpringOptions,
+    private readonly getTarget: () => number,
+    private readonly canRest: () => boolean = () => true
+  ) {
+    this.restDelta = options.restDelta ?? 5e-4;
+    this.restSpeed = options.restSpeed ?? 0.005;
+  }
+
+  start() {
+    if (this.running) {
+      return;
+    }
+    this.value.stop();
+    this.value.setCancel(() => this.stop());
+    this.running = true;
+    this.last = performance.now();
+    const step = (now: number) => {
+      if (!this.running) {
+        return;
+      }
+      const dt = Math.min((now - this.last) / 1000, 0.033);
+      this.last = now;
+      const target = this.getTarget();
+      const x = this.value.get();
+      const accel =
+        -this.options.stiffness * (x - target) - this.options.damping * this.vel;
+      this.vel += accel * dt;
+      const next = x + this.vel * dt;
+      this.value.set(next, now);
+      const settled =
+        Math.abs(next - target) < this.restDelta &&
+        Math.abs(this.vel) < this.restSpeed;
+      if (settled && this.canRest()) {
+        this.running = false;
+        this.vel = 0;
+        this.value.setCancel(null);
+        this.value.set(target, now);
+        return;
+      }
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  stop() {
+    this.running = false;
+    this.vel = 0;
+    cancelAnimationFrame(this.raf);
+  }
+}
+
+function rubberBand(distance: number, overshoot: number, dampening: number): number {
+  if (overshoot <= 0 || distance === 0) {
+    return 0;
+  }
+  const range = overshoot * dampening;
+  const t = Math.min(1, Math.abs(distance) / range);
+  return Math.sign(distance) * overshoot * (1 - (1 - t) ** 3);
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+export {
+  cubicBezier,
+  glassEase,
+  MotionValue,
+  PRESS_DURATION,
+  prefersReducedMotion,
+  RELEASE_DURATION,
+  rubberBand,
+  SpringDriver,
+  TRAVEL_DURATION,
+  tween,
+};
+```
+
+#### `glass-surface.tsx`
+
+```tsx
+"use client";
+
+import {
+  generateLensMap,
+  isSafariBrowser,
+  useGlassDark,
+  useHydrated,
+} from "@/components/ui/glass";
+import { cn } from "@/lib/utils";
+import {
+  type ComponentProps,
+  type RefObject,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+
+const TINT_MAX_ALPHA = 0.4;
+const MIN_VEIL = 0.07;
+const MIN_BLUR = 2.5;
+const MAP_SIZE = 256;
+const MAP_CACHE_LIMIT = 48;
+const GLOW = 0.16;
+const EDGE = 0.85;
+const SPECULAR_STRENGTH = 1.7;
+
+const surfaceMapCache = new Map<string, string>();
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function refractionSupported(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  return (
+    /(Chrome|Chromium|Edg|OPR)\//.test(navigator.userAgent) &&
+    !isSafariBrowser()
+  );
+}
+
+function surfaceMap(
+  w: number,
+  h: number,
+  radius: number,
+  rim: number
+): string {
+  const key = `${w}|${h}|${radius}|${rim}`;
+  const cached = surfaceMapCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const url =
+    generateLensMap({
+      halfW: w / 2,
+      halfH: h / 2,
+      radius,
+      depth: rim,
+      domeDepth: 0,
+      splay: 1,
+      specularAngle: 45,
+      glowStrength: GLOW,
+      glowSpread: 1,
+      glowExponent: 1.5,
+      edgeStrength: EDGE,
+      edgeWidth: 2,
+      edgeExponent: 1.5,
+      size: MAP_SIZE,
+      sdfBoundary: true,
+      edgeFalloff: true,
+    }) ?? "";
+  surfaceMapCache.set(key, url);
+  if (surfaceMapCache.size > MAP_CACHE_LIMIT) {
+    const first = surfaceMapCache.keys().next().value;
+    if (first !== undefined) {
+      surfaceMapCache.delete(first);
+    }
+  }
+  return url;
+}
+
+interface GlassSurfaceHandle {
+  setTintLift(delta: number): void;
+}
+
+interface GlassSurfaceProps extends ComponentProps<"div"> {
+  blur?: number;
+  chroma?: number;
+  handleRef?: RefObject<GlassSurfaceHandle | null>;
+  radius?: number;
+  saturation?: number;
+  specular?: boolean;
+  tint?: number;
+  tintColor?: string;
+}
+
+function GlassSurface({
+  blur = 12,
+  chroma = 0,
+  handleRef,
+  radius = 16,
+  saturation = 1.5,
+  specular = true,
+  tint = 0.5,
+  tintColor,
+  className,
+  style,
+  children,
+  ...props
+}: GlassSurfaceProps) {
+  const dark = useGlassDark();
+  const t = clamp01(tint);
+  const tintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
+  const tintRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const feImageRef = useRef<SVGFEImageElement | null>(null);
+  const dispRefs = useRef<(SVGFEDisplacementMapElement | null)[]>([
+    null,
+    null,
+    null,
+  ]);
+  const baseId = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const filterId = `${baseId}-surface`;
+  const [supported] = useState(refractionSupported);
+  const refract = useHydrated() && supported;
+  const chromaOn = chroma > 0;
+
+  const blurPx = Math.max(t * blur * 0.5, MIN_BLUR);
+  const dispFade = 1 - 0.3 * t;
+
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      setTintLift(delta: number) {
+        if (tintRef.current) {
+          tintRef.current.style.background = `rgba(${tintRGB},${Math.max(clamp01(t + delta) * TINT_MAX_ALPHA, MIN_VEIL)})`;
+        }
+      },
+    }),
+    [t, tintRGB]
+  );
+
+  useEffect(() => {
+    if (!refract) {
+      return;
+    }
+    const node = rootRef.current;
+    if (!node) {
+      return;
+    }
+    let lastKey = "";
+    const update = () => {
+      const w = node.offsetWidth;
+      const h = node.offsetHeight;
+      if (w < 4 || h < 4) {
+        return;
+      }
+      const half = Math.min(w, h) / 2;
+      const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+      const rim = Math.max(6, Math.min(0.18 * Math.min(w, h), 24, half - 2));
+      const key = `${w}|${h}|${r}|${rim}`;
+      if (key !== lastKey) {
+        lastKey = key;
+        const img = feImageRef.current;
+        if (img) {
+          img.setAttribute("href", surfaceMap(w, h, r, rim));
+          img.setAttribute("width", String(w));
+          img.setAttribute("height", String(h));
+        }
+      }
+      const base = Math.min(0.17 * Math.min(w, h), 26) * dispFade;
+      const scales = chromaOn
+        ? [base * (1 + 0.22 * chroma), base * (1 + 0.11 * chroma), base]
+        : [base, base, base];
+      dispRefs.current.forEach((el, i) => {
+        el?.setAttribute("scale", String(scales[i] ?? base));
+      });
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    update();
+    return () => observer.disconnect();
+  }, [refract, radius, chroma, chromaOn, dispFade]);
+
+  const filterParts: string[] = [];
+  if (refract) {
+    filterParts.push(`url(#${filterId})`);
+  }
+  if (blurPx > 0.05) {
+    filterParts.push(`blur(${blurPx}px)`);
+  }
+  const sat = 1 + (saturation - 1) * t;
+  if (sat > 1.001) {
+    filterParts.push(`saturate(${sat})`);
+  }
+  const backdropFilter = filterParts.length ? filterParts.join(" ") : "none";
+
+  const rim = dark
+    ? "inset 0 1px 1px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.2), inset 0 -12px 24px -16px rgba(255,255,255,0.4), 0 18px 44px -12px rgba(0,0,0,0.55)"
+    : "inset 0 1px 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.45), inset 0 -12px 24px -16px rgba(255,255,255,0.6), 0 16px 40px -10px rgba(0,0,0,0.22)";
+  const sheen = dark
+    ? "linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 68%, rgba(255,255,255,0.07) 100%)"
+    : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 66%, rgba(255,255,255,0.14) 100%)";
+
+  return (
+    <div
+      className={cn("relative", className)}
+      ref={rootRef}
+      style={{ borderRadius: radius, ...style }}
+      {...props}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit]"
+        style={{
+          backdropFilter,
+          WebkitBackdropFilter: backdropFilter,
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit]"
+        ref={tintRef}
+        style={{
+          background: `rgba(${tintRGB},${Math.max(t * TINT_MAX_ALPHA, MIN_VEIL)})`,
+        }}
+      />
+      {specular ? (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-[inherit]"
+            style={{ background: sheen }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-[inherit]"
+            style={{ boxShadow: rim }}
+          />
+        </>
+      ) : null}
+      {refract ? (
+        <svg aria-hidden="true" className="absolute h-0 w-0" focusable="false">
+          <defs>
+            <filter
+              colorInterpolationFilters="sRGB"
+              filterUnits="objectBoundingBox"
+              height="1"
+              id={filterId}
+              primitiveUnits="userSpaceOnUse"
+              width="1"
+              x="0"
+              y="0"
+            >
+              <feImage
+                preserveAspectRatio="none"
+                ref={feImageRef}
+                result="map"
+                x="0"
+                y="0"
+              />
+              {chromaOn ? (
+                <>
+                  <feDisplacementMap
+                    in="SourceGraphic"
+                    in2="map"
+                    ref={(el) => {
+                      dispRefs.current[0] = el;
+                    }}
+                    result="dR"
+                    scale="0"
+                    xChannelSelector="R"
+                    yChannelSelector="G"
+                  />
+                  <feColorMatrix
+                    in="dR"
+                    result="cR"
+                    type="matrix"
+                    values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                  />
+                  <feDisplacementMap
+                    in="SourceGraphic"
+                    in2="map"
+                    ref={(el) => {
+                      dispRefs.current[1] = el;
+                    }}
+                    result="dG"
+                    scale="0"
+                    xChannelSelector="R"
+                    yChannelSelector="G"
+                  />
+                  <feColorMatrix
+                    in="dG"
+                    result="cG"
+                    type="matrix"
+                    values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                  />
+                  <feDisplacementMap
+                    in="SourceGraphic"
+                    in2="map"
+                    ref={(el) => {
+                      dispRefs.current[2] = el;
+                    }}
+                    result="dB"
+                    scale="0"
+                    xChannelSelector="R"
+                    yChannelSelector="G"
+                  />
+                  <feColorMatrix
+                    in="dB"
+                    result="cB"
+                    type="matrix"
+                    values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+                  />
+                  <feComposite
+                    in="cR"
+                    in2="cG"
+                    k1="0"
+                    k2="1"
+                    k3="1"
+                    k4="0"
+                    operator="arithmetic"
+                    result="cRG"
+                  />
+                  <feComposite
+                    in="cRG"
+                    in2="cB"
+                    k1="0"
+                    k2="1"
+                    k3="1"
+                    k4="0"
+                    operator="arithmetic"
+                    result="refr"
+                  />
+                </>
+              ) : (
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="map"
+                  ref={(el) => {
+                    dispRefs.current[0] = el;
+                  }}
+                  result="refr"
+                  scale="0"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+              )}
+              {specular ? (
+                <>
+                  <feColorMatrix
+                    in="map"
+                    result="spec"
+                    type="matrix"
+                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 -0.5019607843"
+                  />
+                  <feComposite
+                    in="spec"
+                    in2="refr"
+                    k1="0"
+                    k2={SPECULAR_STRENGTH}
+                    k3="1"
+                    k4="0"
+                    operator="arithmetic"
+                  />
+                </>
+              ) : null}
+            </filter>
+          </defs>
+        </svg>
+      ) : null}
+      <div className="relative h-full w-full rounded-[inherit]">{children}</div>
+    </div>
+  );
+}
+
+export { GlassSurface };
+export type { GlassSurfaceHandle, GlassSurfaceProps };
+```
+
+#### `glass-webgl.ts`
+
+```tsx
+"use client";
+
+import { generateLensMap, type MapParams } from "@/components/ui/glass";
+import { Children, isValidElement, type ReactNode } from "react";
+
+const SLOTS = 5;
+const MAP_CACHE_LIMIT = 64;
+const DPR_CAP = 2.5;
+
+type RasterKind = "video" | "canvas" | "image";
+
+interface GlassWebGLParams {
+  depth: number;
+  domeDepth: number;
+  splay: number;
+  specularAngle: number;
+  glow: number;
+  glowSpread: number;
+  glowExponent: number;
+  edgeHighlight: number;
+  edgeWidth: number;
+  edgeExponent: number;
+  mapSize: number;
+  scaleMax: number;
+  maxDisplacement: number;
+  chroma: number;
+  sdfBoundary: boolean;
+  edgeFalloff: boolean;
+  kx: number;
+  ky: number;
+  tint: number;
+  tintRGB: string;
+  specularStrength: number;
+  specularDark: boolean;
+}
+
+interface GlassWebGLDynamics {
+  zoom?: number;
+  depthMul?: number;
+  mapDims?: { halfW: number; halfH: number; radius: number };
+}
+
+interface AttachOptions {
+  getParams: () => GlassWebGLParams;
+  getDynamics: () => GlassWebGLDynamics | undefined;
+  reveal: boolean;
+}
+
+const OVERRIDE_KEYS = [
+  "depth",
+  "domeDepth",
+  "splay",
+  "specularAngle",
+  "glow",
+  "glowSpread",
+  "glowExponent",
+  "edgeHighlight",
+  "edgeWidth",
+  "edgeExponent",
+] as const;
+
+type OverrideKey = (typeof OVERRIDE_KEYS)[number];
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function markOverrides(
+  mark: HTMLElement
+): Partial<Record<OverrideKey, number>> & { mul: number } {
+  const out: Partial<Record<OverrideKey, number>> & { mul: number } = {
+    mul: 1,
+  };
+  for (const key of OVERRIDE_KEYS) {
+    const raw = mark.dataset[`glass${key[0].toUpperCase()}${key.slice(1)}`];
+    if (raw !== undefined) {
+      const v = Number(raw);
+      if (!Number.isNaN(v)) {
+        out[key] = v;
+      }
+    }
+  }
+  const mulRaw = mark.dataset.glassMul;
+  if (mulRaw !== undefined) {
+    const v = Number(mulRaw);
+    if (!Number.isNaN(v)) {
+      out.mul = clamp01(v);
+    }
+  }
+  return out;
+}
+
+function isRasterChild(children: ReactNode): RasterKind | null {
+  const items = Children.toArray(children).filter(
+    (c) => !(typeof c === "string" && c.trim() === "")
+  );
+  if (items.length !== 1) {
+    return null;
+  }
+  const only = items[0];
+  if (!isValidElement(only) || typeof only.type !== "string") {
+    return null;
+  }
+  if (only.type === "video") {
+    return "video";
+  }
+  if (only.type === "canvas") {
+    return "canvas";
+  }
+  if (only.type === "img") {
+    return "image";
+  }
+  return null;
+}
+
+let webglProbe: boolean | null = null;
+
+function webglAvailable(): boolean {
+  if (webglProbe !== null) {
+    return webglProbe;
+  }
+  if (typeof document === "undefined") {
+    webglProbe = false;
+    return false;
+  }
+  try {
+    const canvas = document.createElement("canvas");
+    const gl =
+      canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl");
+    webglProbe = gl instanceof WebGLRenderingContext;
+  } catch {
+    webglProbe = false;
+  }
+  return webglProbe;
+}
+
+const VERT_SRC = `
+attribute vec2 aPos;
+uniform vec4 uRect;
+uniform vec2 uContainer;
+varying vec2 vLocal;
+varying vec2 vGlobalUV;
+void main() {
+  vLocal = aPos;
+  vec2 px = uRect.xy + aPos * uRect.zw;
+  vGlobalUV = px / uContainer;
+  vec2 clip = vec2(px.x / uContainer.x * 2.0 - 1.0, 1.0 - px.y / uContainer.y * 2.0);
+  gl_Position = vec4(clip, 0.0, 1.0);
+}
+`;
+
+const FRAG_SRC = `
+precision highp float;
+uniform sampler2D uSrc;
+uniform sampler2D uMap;
+uniform vec2 uContainer;
+uniform vec2 uRectWH;
+uniform vec2 uRadius;
+uniform vec3 uChromaScale;
+uniform vec2 uAxis;
+uniform float uSpecStrength;
+uniform float uSpecularDark;
+uniform vec3 uTintColor;
+uniform float uTintAmount;
+varying vec2 vLocal;
+varying vec2 vGlobalUV;
+
+float rrCoverage(vec2 local, vec2 wh, vec2 rad) {
+  vec2 p = (local - 0.5) * wh;
+  vec2 b = wh * 0.5 - rad;
+  vec2 q = abs(p) - b;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - min(rad.x, rad.y);
+  return 1.0 - smoothstep(-1.0, 1.0, d);
+}
+
+vec2 mapOffset(float scalePx) {
+  vec2 m = texture2D(uMap, vLocal).rg;
+  vec2 disp = (m - 0.5) * uAxis * scalePx;
+  return disp / uContainer;
+}
+
+void main() {
+  float cov = rrCoverage(vLocal, uRectWH, uRadius);
+  if (cov <= 0.0) {
+    discard;
+  }
+  float r = texture2D(uSrc, vGlobalUV + mapOffset(uChromaScale.r)).r;
+  float g = texture2D(uSrc, vGlobalUV + mapOffset(uChromaScale.g)).g;
+  float b = texture2D(uSrc, vGlobalUV + mapOffset(uChromaScale.b)).b;
+  vec3 col = vec3(r, g, b);
+  float spec = max(texture2D(uMap, vLocal).b - 0.50196078, 0.0);
+  if (uSpecularDark > 0.5) {
+    col *= 1.0 - uSpecStrength * spec;
+  } else {
+    col += uSpecStrength * spec;
+  }
+  col = mix(col, uTintColor, uTintAmount);
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), cov);
+}
+`;
+
+function compileShader(
+  gl: WebGLRenderingContext,
+  type: number,
+  src: string
+): WebGLShader | null {
+  const shader = gl.createShader(type);
+  if (!shader) {
+    return null;
+  }
+  gl.shaderSource(shader, src);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function createProgram(gl: WebGLRenderingContext): WebGLProgram | null {
+  const vs = compileShader(gl, gl.VERTEX_SHADER, VERT_SRC);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
+  if (!vs || !fs) {
+    return null;
+  }
+  const program = gl.createProgram();
+  if (!program) {
+    return null;
+  }
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, "aPos");
+  gl.linkProgram(program);
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    return null;
+  }
+  return program;
+}
+
+type UniformName =
+  | "uRect"
+  | "uContainer"
+  | "uRectWH"
+  | "uRadius"
+  | "uChromaScale"
+  | "uAxis"
+  | "uSpecStrength"
+  | "uSpecularDark"
+  | "uTintColor"
+  | "uTintAmount"
+  | "uSrc"
+  | "uMap";
+
+interface MapEntry {
+  texture: WebGLTexture | null;
+  ready: boolean;
+}
+
+function parseTintRGB(rgb: string): [number, number, number] {
+  const parts = rgb.split(",").map((v) => Number(v.trim()) / 255);
+  return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+class GlassWebGLRenderer {
+  private gl: WebGLRenderingContext | null = null;
+  private program: WebGLProgram | null = null;
+  private quad: WebGLBuffer | null = null;
+  private srcTexture: WebGLTexture | null = null;
+  private uniforms = new Map<UniformName, WebGLUniformLocation | null>();
+  private mapCache = new Map<string, MapEntry>();
+  private pending = new Set<string>();
+  private raf = 0;
+  private rvfc = 0;
+  private frameReady = false;
+  private srcUploaded = false;
+  private srcW = 0;
+  private srcH = 0;
+  private running = false;
+  private disposed = false;
+
+  attach(
+    container: HTMLDivElement,
+    lensLayer: HTMLDivElement,
+    source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement,
+    options: AttachOptions
+  ): () => void {
+    const canvas = document.createElement("canvas");
+    canvas.setAttribute("aria-hidden", "true");
+    canvas.style.position = "absolute";
+    canvas.style.inset = "0";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.pointerEvents = "none";
+    container.appendChild(canvas);
+
+    const gl =
+      canvas.getContext("webgl", {
+        alpha: true,
+        premultipliedAlpha: false,
+        antialias: true,
+        depth: false,
+        stencil: false,
+        preserveDrawingBuffer: false,
+        powerPreference: "low-power",
+      }) ?? null;
+
+    if (!(gl instanceof WebGLRenderingContext)) {
+      canvas.remove();
+      return () => undefined;
+    }
+    this.gl = gl;
+
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      this.running = false;
+      cancelAnimationFrame(this.raf);
+      this.srcUploaded = false;
+      this.srcTexture = null;
+      this.srcW = 0;
+      this.srcH = 0;
+      for (const entry of this.mapCache.values()) {
+        entry.texture = null;
+        entry.ready = false;
+      }
+    };
+    const onRestored = () => {
+      if (this.disposed) {
+        return;
+      }
+      this.initGL();
+      this.mapCache.clear();
+      this.pending.clear();
+      this.start();
+    };
+    canvas.addEventListener("webglcontextlost", onLost as EventListener);
+    canvas.addEventListener("webglcontextrestored", onRestored);
+
+    this.initGL();
+
+    const isVideo = source instanceof HTMLVideoElement;
+    const supportsRVFC =
+      isVideo &&
+      "requestVideoFrameCallback" in source &&
+      typeof source.requestVideoFrameCallback === "function";
+
+    const pumpVideo = () => {
+      if (this.disposed || !(source instanceof HTMLVideoElement)) {
+        return;
+      }
+      this.frameReady = true;
+      this.rvfc = source.requestVideoFrameCallback(pumpVideo);
+    };
+    if (supportsRVFC && source instanceof HTMLVideoElement) {
+      this.rvfc = source.requestVideoFrameCallback(pumpVideo);
+    }
+
+    const tick = () => {
+      if (!this.running) {
+        return;
+      }
+      this.render(
+        container,
+        lensLayer,
+        source,
+        options,
+        isVideo,
+        supportsRVFC
+      );
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.start = () => {
+      if (this.running) {
+        return;
+      }
+      this.running = true;
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.start();
+
+    return () => {
+      this.disposed = true;
+      this.running = false;
+      cancelAnimationFrame(this.raf);
+      if (
+        supportsRVFC &&
+        source instanceof HTMLVideoElement &&
+        "cancelVideoFrameCallback" in source
+      ) {
+        source.cancelVideoFrameCallback(this.rvfc);
+      }
+      canvas.removeEventListener("webglcontextlost", onLost as EventListener);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
+      const ctx = this.gl;
+      if (ctx) {
+        for (const entry of this.mapCache.values()) {
+          if (entry.texture) {
+            ctx.deleteTexture(entry.texture);
+          }
+        }
+        if (this.srcTexture) {
+          ctx.deleteTexture(this.srcTexture);
+        }
+        if (this.quad) {
+          ctx.deleteBuffer(this.quad);
+        }
+        if (this.program) {
+          ctx.deleteProgram(this.program);
+        }
+        const lose = ctx.getExtension("WEBGL_lose_context");
+        if (lose) {
+          lose.loseContext();
+        }
+      }
+      this.mapCache.clear();
+      this.pending.clear();
+      this.gl = null;
+      canvas.remove();
+    };
+  }
+
+  private start: () => void = () => undefined;
+
+  private initGL() {
+    const gl = this.gl;
+    if (!gl) {
+      return;
+    }
+    const program = createProgram(gl);
+    if (!program) {
+      return;
+    }
+    this.program = program;
+    const names: UniformName[] = [
+      "uRect",
+      "uContainer",
+      "uRectWH",
+      "uRadius",
+      "uChromaScale",
+      "uAxis",
+      "uSpecStrength",
+      "uSpecularDark",
+      "uTintColor",
+      "uTintAmount",
+      "uSrc",
+      "uMap",
+    ];
+    this.uniforms.clear();
+    for (const name of names) {
+      this.uniforms.set(name, gl.getUniformLocation(program, name));
+    }
+    this.quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+    this.srcTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.srcTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(
+      gl.SRC_ALPHA,
+      gl.ONE_MINUS_SRC_ALPHA,
+      gl.ONE,
+      gl.ONE_MINUS_SRC_ALPHA
+    );
+    gl.clearColor(0, 0, 0, 0);
+    this.srcUploaded = false;
+  }
+
+  private ensureMap(key: string, mp: MapParams): MapEntry {
+    const existing = this.mapCache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const entry: MapEntry = { texture: null, ready: false };
+    this.mapCache.set(key, entry);
+    if (this.mapCache.size > MAP_CACHE_LIMIT) {
+      const first = this.mapCache.keys().next().value;
+      if (first !== undefined && first !== key) {
+        const old = this.mapCache.get(first);
+        if (old?.texture && this.gl) {
+          this.gl.deleteTexture(old.texture);
+        }
+        this.mapCache.delete(first);
+      }
+    }
+    if (this.pending.has(key)) {
+      return entry;
+    }
+    this.pending.add(key);
+    const url = generateLensMap(mp);
+    if (!url) {
+      this.pending.delete(key);
+      return entry;
+    }
+    const image = new Image();
+    image.onload = () => {
+      this.pending.delete(key);
+      const gl = this.gl;
+      const live = this.mapCache.get(key);
+      if (!gl || this.disposed || !live) {
+        return;
+      }
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image
+      );
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      live.texture = texture;
+      live.ready = true;
+    };
+    image.onerror = () => {
+      this.pending.delete(key);
+    };
+    image.src = url;
+    return entry;
+  }
+
+  private uploadSource(
+    source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement,
+    isVideo: boolean,
+    supportsRVFC: boolean
+  ): boolean {
+    const gl = this.gl;
+    if (!gl || !this.srcTexture) {
+      return false;
+    }
+    let w = 0;
+    let h = 0;
+    if (source instanceof HTMLVideoElement) {
+      if (source.readyState < source.HAVE_CURRENT_DATA) {
+        return this.srcUploaded;
+      }
+      w = source.videoWidth;
+      h = source.videoHeight;
+    } else if (source instanceof HTMLImageElement) {
+      w = source.naturalWidth;
+      h = source.naturalHeight;
+    } else {
+      w = source.width;
+      h = source.height;
+    }
+    if (w === 0 || h === 0) {
+      return this.srcUploaded;
+    }
+    const needsUpload =
+      !this.srcUploaded ||
+      source instanceof HTMLCanvasElement ||
+      (isVideo && (!supportsRVFC || this.frameReady)) ||
+      (source instanceof HTMLImageElement &&
+        (this.srcW !== w || this.srcH !== h));
+    if (!needsUpload) {
+      return true;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.srcTexture);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    this.srcUploaded = true;
+    this.srcW = w;
+    this.srcH = h;
+    this.frameReady = false;
+    return true;
+  }
+
+  private render(
+    container: HTMLDivElement,
+    lensLayer: HTMLDivElement,
+    source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement,
+    options: AttachOptions,
+    isVideo: boolean,
+    supportsRVFC: boolean
+  ) {
+    const gl = this.gl;
+    const program = this.program;
+    if (!gl || !program) {
+      return;
+    }
+    const base = container.getBoundingClientRect();
+    if (base.width < 2 || base.height < 2) {
+      return;
+    }
+    const dpr = Math.min(
+      typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+      DPR_CAP
+    );
+    const cw = Math.max(1, Math.round(base.width * dpr));
+    const ch = Math.max(1, Math.round(base.height * dpr));
+    if (gl.canvas.width !== cw || gl.canvas.height !== ch) {
+      gl.canvas.width = cw;
+      gl.canvas.height = ch;
+    }
+    gl.viewport(0, 0, cw, ch);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    if (!this.uploadSource(source, isVideo, supportsRVFC)) {
+      return;
+    }
+
+    const p = options.getParams();
+    const dyn = options.getDynamics();
+    const zoom = dyn?.zoom ?? 1;
+    const depthMul = dyn?.depthMul ?? 1;
+    const dispScale = Math.min(p.scaleMax * base.width * zoom, p.maxDisplacement);
+    const tintColor = parseTintRGB(p.tintRGB);
+
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(this.uniforms.get("uContainer") ?? null, base.width, base.height);
+    gl.uniform1i(this.uniforms.get("uSrc") ?? null, 0);
+    gl.uniform1i(this.uniforms.get("uMap") ?? null, 1);
+    gl.uniform1f(
+      this.uniforms.get("uSpecStrength") ?? null,
+      p.specularStrength
+    );
+    gl.uniform1f(
+      this.uniforms.get("uSpecularDark") ?? null,
+      p.specularDark ? 1 : 0
+    );
+    gl.uniform3f(
+      this.uniforms.get("uTintColor") ?? null,
+      tintColor[0],
+      tintColor[1],
+      tintColor[2]
+    );
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.srcTexture);
+
+    const marks = lensLayer.querySelectorAll<HTMLElement>("[data-glass-lens]");
+    for (let i = 0; i < SLOTS; i++) {
+      const mark = marks[i];
+      if (!mark) {
+        continue;
+      }
+      const r = mark.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) {
+        continue;
+      }
+      const ov = markOverrides(mark);
+      const tintRaw = mark.dataset.glassTint;
+      const tintNum = tintRaw === undefined ? Number.NaN : Number(tintRaw);
+      const lensTint = Number.isNaN(tintNum) ? p.tint : clamp01(tintNum);
+      const tintEff = 0.5 * lensTint;
+      const md = i === 0 ? dyn?.mapDims : undefined;
+      const rectW = Math.round(r.width * 2) / 2;
+      const rectH = Math.round(r.height * 2) / 2;
+      const genW = md ? Math.round(md.halfW * 4) / 2 : rectW;
+      const genH = md ? Math.round(md.halfH * 4) / 2 : rectH;
+      const radiusParts = getComputedStyle(mark)
+        .borderTopLeftRadius.split(" ")
+        .map((v) => Math.round(Number.parseFloat(v) * 2) / 2 || 0);
+      const cssRadius = radiusParts[0] ?? 0;
+      const cssRadiusY = radiusParts[1] ?? cssRadius;
+      const radius = md ? Math.round(md.radius * 2) / 2 : cssRadius;
+      const unitsPerPx = md ? genW / Math.max(rectW, 1) : 1;
+      const baseDepth = ov.depth ?? p.depth;
+      const baseDome = ov.domeDepth ?? p.domeDepth;
+      const baseEdgeW = ov.edgeWidth ?? p.edgeWidth;
+      const effDepth = Math.round(baseDepth * depthMul * unitsPerPx * 10) / 10;
+      const effDome = Math.round(baseDome * unitsPerPx * 10) / 10;
+      const effEdgeW = Math.round(baseEdgeW * unitsPerPx * 10) / 10;
+      const splayV = ov.splay ?? p.splay;
+      const angleV = ov.specularAngle ?? p.specularAngle;
+      const glowV = ov.glow ?? p.glow;
+      const glowSpreadV = ov.glowSpread ?? p.glowSpread;
+      const glowExpV = ov.glowExponent ?? p.glowExponent;
+      const edgeV = ov.edgeHighlight ?? p.edgeHighlight;
+      const edgeExpV = ov.edgeExponent ?? p.edgeExponent;
+      const key = `${genW}x${genH}r${radius}d${effDepth}o${effDome}p${splayV}a${angleV}g${glowV},${glowSpreadV},${glowExpV}e${edgeV},${effEdgeW},${edgeExpV}m${p.mapSize}f${p.sdfBoundary ? 1 : 0}${p.edgeFalloff ? 1 : 0}`;
+      const entry = this.ensureMap(key, {
+        halfW: genW / 2,
+        halfH: genH / 2,
+        radius,
+        depth: effDepth,
+        domeDepth: effDome,
+        splay: splayV,
+        specularAngle: angleV,
+        glowStrength: glowV,
+        glowSpread: glowSpreadV,
+        glowExponent: glowExpV,
+        edgeStrength: edgeV,
+        edgeWidth: effEdgeW,
+        edgeExponent: edgeExpV,
+        size: p.mapSize,
+        sdfBoundary: p.sdfBoundary,
+        edgeFalloff: p.edgeFalloff,
+      });
+      if (!entry.ready || !entry.texture) {
+        continue;
+      }
+      const fx = Math.round((r.left - base.left) * 2) / 2;
+      const fy = Math.round((r.top - base.top) * 2) / 2;
+      const tintFade = 1 - 0.85 * tintEff;
+      const axisX = p.kx * ov.mul * tintFade;
+      const axisY = p.ky * ov.mul * tintFade;
+      const c = p.chroma;
+      const chromaR = c > 0 ? dispScale * (1 + 0.2 * c) : dispScale;
+      const chromaG = c > 0 ? dispScale * (1 + 0.1 * c) : dispScale;
+      gl.uniform4f(this.uniforms.get("uRect") ?? null, fx, fy, rectW, rectH);
+      gl.uniform2f(this.uniforms.get("uRectWH") ?? null, rectW, rectH);
+      gl.uniform2f(
+        this.uniforms.get("uRadius") ?? null,
+        Math.min(cssRadius, rectW / 2),
+        Math.min(cssRadiusY, rectH / 2)
+      );
+      gl.uniform3f(
+        this.uniforms.get("uChromaScale") ?? null,
+        chromaR,
+        chromaG,
+        dispScale
+      );
+      gl.uniform2f(this.uniforms.get("uAxis") ?? null, axisX, axisY);
+      gl.uniform1f(
+        this.uniforms.get("uTintAmount") ?? null,
+        Math.round(tintEff * 700) / 1000
+      );
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+  }
+}
+
+export { GlassWebGLRenderer, isRasterChild, webglAvailable };
+export type { GlassWebGLDynamics, GlassWebGLParams, RasterKind };
+```
+
+---
+
+# Glass Button
+
+> The circular iOS icon button and its text capsule sibling. A frosted glass disc blurs whatever sits behind it, and pressing squeezes the button with a gel response: the disc scales down and the tint clears while held.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-button.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-button
+```
+
+## Props
+
+### GlassButton
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `variant` | `"icon" \| "capsule"` | `"icon"` | icon renders a fixed-size disc, capsule a pill that grows with its label. |
+| `size` | `number` | `44` | Disc diameter, or capsule height, in px. |
+| `tint` | `number` | `0.2` | Glass tint from 0 (clear) to 1 (opaque). |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+| `...props` | `ComponentProps<"button">` | — | All native button props are forwarded. |
+
+## Usage
+
+```tsx
+import { Bell, Ellipsis } from "@/components/docs/icons";
+import { GlassButton } from "@/components/ui/glass-button";
+
+function GlassButtonDemo({ tint }: { tint?: number }) {
+  return (
+    <div className="flex items-center justify-center gap-5">
+      <GlassButton aria-label="More options" tint={tint}>
+        <Ellipsis className="size-5" />
+      </GlassButton>
+      <GlassButton aria-label="Notifications" tint={tint}>
+        <Bell className="size-5" />
+      </GlassButton>
+      <GlassButton tint={tint} variant="capsule">
+        Continue
+      </GlassButton>
+    </div>
+  );
+}
+
+export { GlassButtonDemo };
+```
+
+## Source
+
+#### `glass-button.tsx`
+
+```tsx
+"use client";
+
+import {
+  GlassSurface,
+  type GlassSurfaceHandle,
+} from "@/components/ui/glass-surface";
+import {
+  glassEase,
+  MotionValue,
+  PRESS_DURATION,
+  prefersReducedMotion,
+  RELEASE_DURATION,
+  tween,
+} from "@/components/ui/glass-motion";
+import { cn } from "@/lib/utils";
+import { type ComponentProps, useCallback, useEffect, useRef } from "react";
+
+const PRESS_SCALE = 0.92;
+const PRESS_LIFT = -0.2;
+
+interface GlassButtonProps extends ComponentProps<"button"> {
+  size?: number;
+  tint?: number;
+  tintColor?: string;
+  variant?: "icon" | "capsule";
+}
+
+function GlassButton({
+  size = 44,
+  tint = 0.2,
+  tintColor,
+  variant = "icon",
+  className,
+  style,
+  children,
+  type = "button",
+  onPointerDown,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave,
+  onKeyDown,
+  onKeyUp,
+  ...props
+}: GlassButtonProps) {
+  const innerRef = useRef<HTMLSpanElement | null>(null);
+  const surfaceHandle = useRef<GlassSurfaceHandle | null>(null);
+  const scale = useRef(new MotionValue(1));
+  const lift = useRef(new MotionValue(0));
+  const pressed = useRef(false);
+  const frame = useRef(0);
+
+  const apply = useCallback(() => {
+    frame.current = 0;
+    const inner = innerRef.current;
+    if (inner) {
+      const s = scale.current.get();
+      inner.style.transform = s === 1 ? "" : `scale(${s})`;
+    }
+    surfaceHandle.current?.setTintLift(lift.current.get());
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) {
+      frame.current = requestAnimationFrame(apply);
+    }
+  }, [apply]);
+
+  useEffect(() => {
+    const subs = [scale.current.on(schedule), lift.current.on(schedule)];
+    return () => {
+      for (const off of subs) {
+        off();
+      }
+      cancelAnimationFrame(frame.current);
+    };
+  }, [schedule]);
+
+  const press = useCallback(() => {
+    if (pressed.current) {
+      return;
+    }
+    pressed.current = true;
+    const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+    tween(scale.current, PRESS_SCALE, d, glassEase);
+    tween(lift.current, PRESS_LIFT, d, glassEase);
+  }, []);
+
+  const release = useCallback(() => {
+    if (!pressed.current) {
+      return;
+    }
+    pressed.current = false;
+    const d = prefersReducedMotion() ? 0 : RELEASE_DURATION;
+    tween(scale.current, 1, d, glassEase);
+    tween(lift.current, 0, d, glassEase);
+  }, []);
+
+  return (
+    <button
+      className={cn(
+        "relative inline-flex shrink-0 cursor-pointer select-none items-center justify-center text-[#1d1d1f] outline-none focus-visible:outline-2 focus-visible:outline-[#9896ff] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#f5f5f7]",
+        className
+      )}
+      onKeyDown={(e) => {
+        if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+          press();
+        }
+        onKeyDown?.(e);
+      }}
+      onKeyUp={(e) => {
+        release();
+        onKeyUp?.(e);
+      }}
+      onPointerCancel={(e) => {
+        release();
+        onPointerCancel?.(e);
+      }}
+      onPointerDown={(e) => {
+        press();
+        onPointerDown?.(e);
+      }}
+      onPointerLeave={(e) => {
+        release();
+        onPointerLeave?.(e);
+      }}
+      onPointerUp={(e) => {
+        release();
+        onPointerUp?.(e);
+      }}
+      style={{
+        height: size,
+        width: variant === "icon" ? size : undefined,
+        borderRadius: size / 2,
+        ...style,
+      }}
+      type={type}
+      {...props}
+    >
+      <span
+        className={cn(
+          "relative inline-flex h-full items-center justify-center rounded-[inherit]",
+          variant === "icon" && "w-full"
+        )}
+        ref={innerRef}
+        style={{
+          paddingInline: variant === "capsule" ? Math.round(size * 0.45) : 0,
+          willChange: "transform",
+        }}
+      >
+        <GlassSurface
+          aria-hidden="true"
+          blur={8}
+          className="absolute inset-0"
+          handleRef={surfaceHandle}
+          radius={size / 2}
+          tint={tint}
+          tintColor={tintColor}
+        />
+        <span className="relative inline-flex items-center justify-center gap-2 font-medium text-[15px] leading-none">
+          {children}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+export { GlassButton };
+export type { GlassButtonProps };
+```
+
+---
+
+# Glass Dialog
+
+> A modal alert sheet on a glass panel. The page dims behind a blurred scrim and the frosted panel scales into place, like an iOS alert. Built on Base UI Dialog, so focus trapping, escape, and outside-press dismissal are handled.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-dialog.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-dialog
+```
+
+## Props
+
+### GlassDialog
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `open / defaultOpen` | `boolean` | `false` | Controlled and uncontrolled open state. |
+| `onOpenChange` | `(open: boolean) => void` | `undefined` | Called when the open state changes. |
+
+### GlassDialogContent
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `tint` | `number` | `0.75` | Glass tint of the panel. Dialogs default high for legibility over arbitrary pages. |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+
+## Usage
+
+```tsx
+import { type CSSProperties, useState } from "react";
+import { ShowcaseGrid } from "@/components/docs/showcase-grid";
+import { Glass } from "@/components/ui/glass";
+
+const STAGE_W = 440;
+const STAGE_H = 300;
+
+const DIALOG = { w: 300, h: 190 };
+const DIALOG_X = (STAGE_W - DIALOG.w) / 2;
+const DIALOG_Y = (STAGE_H - DIALOG.h) / 2;
+
+const BTN_H = 38;
+const RESET = { w: 78, x: DIALOG_X + DIALOG.w - 22 - 78, y: DIALOG_Y + DIALOG.h - 22 - BTN_H };
+const CANCEL = { w: 86, x: RESET.x - 10 - 86, y: RESET.y };
+
+const TRIGGER = { w: 150, h: 46 };
+const TRIGGER_X = (STAGE_W - TRIGGER.w) / 2;
+const TRIGGER_Y = (STAGE_H - TRIGGER.h) / 2;
+
+const frameStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  width: STAGE_W,
+  height: STAGE_H,
+  transform: "translate(-50%, -50%)",
+};
+
+const lensShadow =
+  "inset 0 1px 1.5px rgba(255,255,255,0.55), 0 16px 38px -14px rgba(0,0,0,0.4)";
+
+function rect(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number
+): CSSProperties {
+  return {
+    position: "absolute",
+    left: x,
+    top: y,
+    width: w,
+    height: h,
+    borderRadius: radius,
+    boxShadow: lensShadow,
+  };
+}
+
+function GlassDialogDemo({ tint }: { tint?: number }) {
+  const [open, setOpen] = useState(true);
+
+  const lenses = open ? (
+    <>
+      <div data-glass-lens style={rect(DIALOG_X, DIALOG_Y, DIALOG.w, DIALOG.h, 28)} />
+      <div data-glass-lens style={rect(CANCEL.x, CANCEL.y, CANCEL.w, BTN_H, BTN_H / 2)} />
+      <div data-glass-lens style={rect(RESET.x, RESET.y, RESET.w, BTN_H, BTN_H / 2)} />
+    </>
+  ) : (
+    <div
+      data-glass-lens
+      style={rect(TRIGGER_X, TRIGGER_Y, TRIGGER.w, TRIGGER.h, TRIGGER.h / 2)}
+    />
+  );
+
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-[20px]">
+      <Glass
+        chroma={0.3}
+        className="absolute inset-0"
+        depth={11}
+        domeDepth={14}
+        edgeHighlight={0.3}
+        glow={0.12}
+        lens={<div style={frameStyle}>{lenses}</div>}
+        tint={tint}
+      >
+        <ShowcaseGrid />
+        {open ? (
+          <div aria-hidden="true" className="absolute inset-0 bg-black/35" />
+        ) : null}
+      </Glass>
+
+      <div style={frameStyle}>
+        {open ? (
+          <>
+            <button
+              aria-label="Close dialog"
+              className="absolute inset-0 cursor-default outline-none"
+              onClick={() => setOpen(false)}
+              type="button"
+            />
+            <div
+              className="absolute text-[#1d1d1f]"
+              style={{ left: DIALOG_X + 24, top: DIALOG_Y + 24, width: DIALOG.w - 48 }}
+            >
+              <div className="font-semibold text-[17px] leading-snug tracking-tight">
+                Reset all settings?
+              </div>
+              <div className="mt-1.5 text-[14px] leading-relaxed opacity-65">
+                This restores every preference to its default value. You cannot
+                undo this action.
+              </div>
+            </div>
+            <button
+              className="absolute flex cursor-pointer items-center justify-center font-medium text-[#1d1d1f] text-[14px] outline-none"
+              onClick={() => setOpen(false)}
+              style={{ left: CANCEL.x, top: CANCEL.y, width: CANCEL.w, height: BTN_H }}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="absolute flex cursor-pointer items-center justify-center font-medium text-[#e5484d] text-[14px] outline-none"
+              onClick={() => setOpen(false)}
+              style={{ left: RESET.x, top: RESET.y, width: RESET.w, height: BTN_H }}
+              type="button"
+            >
+              Reset
+            </button>
+          </>
+        ) : (
+          <button
+            className="absolute flex cursor-pointer items-center justify-center font-medium text-[#1d1d1f] text-[15px] outline-none"
+            onClick={() => setOpen(true)}
+            style={{
+              left: TRIGGER_X,
+              top: TRIGGER_Y,
+              width: TRIGGER.w,
+              height: TRIGGER.h,
+            }}
+            type="button"
+          >
+            Show Dialog
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export { GlassDialogDemo };
+```
+
+## Source
+
+#### `glass-dialog.tsx`
+
+```tsx
+"use client";
+
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { GlassSurface } from "@/components/ui/glass-surface";
+import { cn } from "@/lib/utils";
+
+const GlassDialog = DialogPrimitive.Root;
+const GlassDialogTrigger = DialogPrimitive.Trigger;
+const GlassDialogClose = DialogPrimitive.Close;
+
+interface GlassDialogContentProps extends DialogPrimitive.Popup.Props {
+  tint?: number;
+  tintColor?: string;
+}
+
+function GlassDialogContent({
+  tint = 0.75,
+  tintColor,
+  className,
+  children,
+  ...props
+}: GlassDialogContentProps) {
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[8px] transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+      <DialogPrimitive.Popup
+        className={cn(
+          "-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 outline-none transition-[scale,opacity] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[ending-style]:ease-out data-[starting-style]:scale-[0.85]",
+          className
+        )}
+        {...props}
+      >
+        <GlassSurface blur={24} radius={28} tint={tint} tintColor={tintColor}>
+          <div className="w-[min(calc(100vw-2rem),400px)] p-6 text-[#1d1d1f] dark:text-[#f5f5f7]">
+            {children}
+          </div>
+        </GlassSurface>
+      </DialogPrimitive.Popup>
+    </DialogPrimitive.Portal>
+  );
+}
+
+function GlassDialogTitle({
+  className,
+  ...props
+}: DialogPrimitive.Title.Props) {
+  return (
+    <DialogPrimitive.Title
+      className={cn(
+        "font-semibold text-[17px] leading-snug tracking-tight",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+function GlassDialogDescription({
+  className,
+  ...props
+}: DialogPrimitive.Description.Props) {
+  return (
+    <DialogPrimitive.Description
+      className={cn("mt-1.5 text-[14px] leading-relaxed opacity-65", className)}
+      {...props}
+    />
+  );
+}
+
+export {
+  GlassDialog,
+  GlassDialogClose,
+  GlassDialogContent,
+  GlassDialogDescription,
+  GlassDialogTitle,
+  GlassDialogTrigger,
+};
+export type { GlassDialogContentProps };
+```
+
+---
+
+# Glass Input
+
+> An iOS search bar: a text field inside a frosted glass capsule with a leading icon slot. Focusing glows in a soft ring while the tint lifts slightly, so the field reads as raised glass while you type.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-input.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-input
+```
+
+## Props
+
+### GlassInput
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `height` | `number` | `44` | Capsule height in px. The radius is always height / 2. |
+| `icon` | `ReactNode` | `undefined` | Leading icon slot. |
+| `tint` | `number` | `0.5` | Glass tint of the capsule from 0 (clear) to 1 (opaque). |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+| `inputClassName` | `string` | `undefined` | Classes for the inner input element. className styles the capsule. |
+| `onValueChange` | `(value: string) => void` | `undefined` | Convenience change callback from Base UI Input, alongside the native onChange. |
+| `...props` | `Input.Props` | — | All native input props are forwarded. |
+
+## Usage
+
+```tsx
+import { Search } from "@/components/docs/icons";
+import { GlassInput } from "@/components/ui/glass-input";
+
+function GlassInputDemo({ tint }: { tint?: number }) {
+  return (
+    <GlassInput
+      className="w-72"
+      icon={<Search />}
+      placeholder="Search components"
+      tint={tint}
+    />
+  );
+}
+
+export { GlassInputDemo };
+```
+
+## Source
+
+#### `glass-input.tsx`
+
+```tsx
+"use client";
+
+import { Input as InputPrimitive } from "@base-ui/react/input";
+import {
+  GlassSurface,
+  type GlassSurfaceHandle,
+} from "@/components/ui/glass-surface";
+import {
+  glassEase,
+  MotionValue,
+  PRESS_DURATION,
+  prefersReducedMotion,
+  RELEASE_DURATION,
+  tween,
+} from "@/components/ui/glass-motion";
+import { cn } from "@/lib/utils";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
+
+const FOCUS_LIFT = 0.1;
+
+interface GlassInputProps extends InputPrimitive.Props {
+  height?: number;
+  icon?: ReactNode;
+  inputClassName?: string;
+  tint?: number;
+  tintColor?: string;
+}
+
+function GlassInput({
+  height = 44,
+  icon,
+  inputClassName,
+  tint = 0.5,
+  tintColor,
+  className,
+  style,
+  onFocus,
+  onBlur,
+  ...props
+}: GlassInputProps) {
+  const surfaceHandle = useRef<GlassSurfaceHandle | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const focusGlow = useRef(new MotionValue(0));
+  const frame = useRef(0);
+
+  const apply = useCallback(() => {
+    frame.current = 0;
+    const v = focusGlow.current.get();
+    if (ringRef.current) {
+      ringRef.current.style.opacity = String(v);
+    }
+    surfaceHandle.current?.setTintLift(FOCUS_LIFT * v);
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) {
+      frame.current = requestAnimationFrame(apply);
+    }
+  }, [apply]);
+
+  useEffect(() => {
+    const off = focusGlow.current.on(schedule);
+    return () => {
+      off();
+      cancelAnimationFrame(frame.current);
+    };
+  }, [schedule]);
+
+  return (
+    <label
+      className={cn("relative inline-flex w-64 items-center", className)}
+      style={{ height, borderRadius: height / 2, ...style }}
+    >
+      <GlassSurface
+        aria-hidden="true"
+        blur={10}
+        className="absolute inset-0"
+        handleRef={surfaceHandle}
+        radius={height / 2}
+        tint={tint}
+        tintColor={tintColor}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit]"
+        ref={ringRef}
+        style={{
+          opacity: 0,
+          boxShadow:
+            "0 0 0 2px rgba(152,150,255,0.7), inset 0 1px 0 0 rgba(255,255,255,0.5)",
+        }}
+      />
+      {icon ? (
+        <span className="relative z-10 ml-4 inline-flex shrink-0 items-center justify-center text-[#1d1d1f]/55 dark:text-[#f5f5f7]/55 [&_svg]:size-[18px]">
+          {icon}
+        </span>
+      ) : null}
+      <InputPrimitive
+        className={cn(
+          "relative z-10 h-full w-full min-w-0 rounded-[inherit] bg-transparent text-[#1d1d1f] text-[15px] outline-none placeholder:text-[#1d1d1f]/45 dark:text-[#f5f5f7] dark:placeholder:text-[#f5f5f7]/45",
+          icon ? "pr-4 pl-2.5" : "px-4",
+          inputClassName
+        )}
+        onBlur={(e) => {
+          const d = prefersReducedMotion() ? 0 : RELEASE_DURATION;
+          tween(focusGlow.current, 0, d, glassEase);
+          onBlur?.(e);
+        }}
+        onFocus={(e) => {
+          const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+          tween(focusGlow.current, 1, d, glassEase);
+          onFocus?.(e);
+        }}
+        {...props}
+      />
+    </label>
+  );
+}
+
+export { GlassInput };
+export type { GlassInputProps };
+```
+
+---
+
+# Glass Popover
+
+> The iOS context menu: a frosted glass panel attached to its trigger, blurring whatever sits behind it, with icon, label, and sublabel rows. Built on Base UI Menu, so arrow keys, typeahead, and close-on-select work out of the box.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-popover.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-popover
+```
+
+## Props
+
+### GlassPopoverContent
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `side` | `"top" \| "right" \| "bottom" \| "left"` | `"bottom"` | Which side of the trigger the panel opens on. |
+| `align` | `"start" \| "center" \| "end"` | `"start"` | Alignment against the trigger. |
+| `sideOffset` | `number` | `10` | Gap between trigger and panel in px. |
+| `tint` | `number` | `0.55` | Glass tint of the panel from 0 (clear) to 1 (opaque). |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+
+### GlassPopoverItem
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | `required` | Row label, also used for keyboard typeahead. |
+| `sublabel` | `string` | `undefined` | Smaller secondary line under the label. |
+| `icon` | `ReactNode` | `undefined` | Leading icon slot. |
+| `destructive` | `boolean` | `false` | Tints the row red for destructive actions. |
+| `onClick` | `(event) => void` | `undefined` | Action handler. The menu closes on click by default. |
+
+## Usage
+
+```tsx
+import { type CSSProperties, type ReactNode, useState } from "react";
+import { Ellipsis, Pencil, Share } from "@/components/docs/icons";
+import { ShowcaseGrid } from "@/components/docs/showcase-grid";
+import { Glass } from "@/components/ui/glass";
+
+const STAGE_W = 300;
+const STAGE_H = 320;
+const TRIGGER = 44;
+const POP = { left: 16, top: 16 + TRIGGER + 12, width: 250, height: 116, radius: 26 };
+
+const frameStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  width: STAGE_W,
+  height: STAGE_H,
+  transform: "translate(-50%, -50%)",
+};
+
+const lensShadow =
+  "inset 0 1px 1.5px rgba(255,255,255,0.55), 0 18px 44px -14px rgba(0,0,0,0.32)";
+
+function MenuRow({
+  icon,
+  label,
+  sublabel,
+}: {
+  icon: ReactNode;
+  label: string;
+  sublabel?: string;
+}) {
+  return (
+    <div className="mx-2.5 flex items-center gap-4 rounded-[14px] px-3 py-2.5 text-[#1d1d1f]">
+      <span className="inline-flex w-6 shrink-0 items-center justify-center [&_svg]:size-5">
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-[16px] leading-tight">{label}</span>
+        {sublabel ? (
+          <span className="truncate text-[13px] leading-tight opacity-55">
+            {sublabel}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+function GlassPopoverDemo({ tint }: { tint?: number }) {
+  const [open, setOpen] = useState(true);
+
+  const triggerLens: CSSProperties = {
+    position: "absolute",
+    left: 16,
+    top: 16,
+    width: TRIGGER,
+    height: TRIGGER,
+    borderRadius: TRIGGER / 2,
+    boxShadow: lensShadow,
+  };
+  const popLens: CSSProperties = {
+    position: "absolute",
+    left: POP.left,
+    top: POP.top,
+    width: POP.width,
+    height: POP.height,
+    borderRadius: POP.radius,
+    boxShadow: lensShadow,
+  };
+
+  return (
+    <div className="absolute inset-0 select-none overflow-hidden rounded-[20px]">
+      <Glass
+        chroma={0.2}
+        className="absolute inset-0"
+        depth={12}
+        domeDepth={14}
+        edgeHighlight={0.3}
+        glow={0.12}
+        lens={
+          <div style={frameStyle}>
+            <div data-glass-lens style={triggerLens} />
+            {open ? <div data-glass-lens style={popLens} /> : null}
+          </div>
+        }
+        tint={tint}
+      >
+        <ShowcaseGrid />
+      </Glass>
+
+      <div style={frameStyle}>
+        <button
+          aria-label="More options"
+          className="absolute flex cursor-pointer items-center justify-center text-[#1d1d1f] outline-none"
+          onClick={() => setOpen((o) => !o)}
+          style={{ left: 16, top: 16, width: TRIGGER, height: TRIGGER }}
+          type="button"
+        >
+          <Ellipsis className="size-5" />
+        </button>
+
+        {open ? (
+          <div
+            className="absolute py-2.5"
+            style={{ left: POP.left, top: POP.top, width: POP.width }}
+          >
+            <MenuRow icon={<Pencil />} label="Edit Profile" />
+            <MenuRow
+              icon={<Share />}
+              label="Share Invite Link"
+              sublabel="Boost your rate"
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export { GlassPopoverDemo };
+```
+
+## Source
+
+#### `glass-popover.tsx`
+
+```tsx
+"use client";
+
+import { Menu as MenuPrimitive } from "@base-ui/react/menu";
+import { GlassSurface } from "@/components/ui/glass-surface";
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
+
+const GlassPopover = MenuPrimitive.Root;
+const GlassPopoverTrigger = MenuPrimitive.Trigger;
+
+interface GlassPopoverContentProps extends MenuPrimitive.Popup.Props {
+  align?: MenuPrimitive.Positioner.Props["align"];
+  side?: MenuPrimitive.Positioner.Props["side"];
+  sideOffset?: number;
+  tint?: number;
+  tintColor?: string;
+}
+
+function GlassPopoverContent({
+  align = "start",
+  side = "bottom",
+  sideOffset = 10,
+  tint = 0.55,
+  tintColor,
+  className,
+  children,
+  ...props
+}: GlassPopoverContentProps) {
+  return (
+    <MenuPrimitive.Portal>
+      <MenuPrimitive.Positioner
+        align={align}
+        className="z-50 outline-none"
+        side={side}
+        sideOffset={sideOffset}
+      >
+        <MenuPrimitive.Popup
+          className={cn(
+            "origin-[var(--transform-origin)] outline-none transition-[scale,opacity] duration-300 ease-[cubic-bezier(0.34,1.3,0.64,1)] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[ending-style]:ease-out data-[starting-style]:scale-[0.6]",
+            className
+          )}
+          {...props}
+        >
+          <GlassSurface
+            blur={30}
+            radius={26}
+            tint={tint}
+            tintColor={tintColor}
+          >
+            <div className="min-w-[230px] py-2.5">{children}</div>
+          </GlassSurface>
+        </MenuPrimitive.Popup>
+      </MenuPrimitive.Positioner>
+    </MenuPrimitive.Portal>
+  );
+}
+
+interface GlassPopoverItemProps extends MenuPrimitive.Item.Props {
+  destructive?: boolean;
+  icon?: ReactNode;
+  label: string;
+  sublabel?: string;
+}
+
+function GlassPopoverItem({
+  destructive = false,
+  icon,
+  label,
+  sublabel,
+  className,
+  ...props
+}: GlassPopoverItemProps) {
+  return (
+    <MenuPrimitive.Item
+      className={cn(
+        "mx-2.5 flex cursor-pointer select-none items-center gap-4 rounded-[14px] px-3 py-2.5 text-[#1d1d1f] outline-none data-[highlighted]:bg-black/8 dark:text-[#f5f5f7] dark:data-[highlighted]:bg-white/12",
+        destructive && "text-[#e5484d] dark:text-[#ff6369]",
+        className
+      )}
+      label={label}
+      {...props}
+    >
+      {icon ? (
+        <span className="inline-flex w-6 shrink-0 items-center justify-center [&_svg]:size-5">
+          {icon}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-[16px] leading-tight">{label}</span>
+        {sublabel ? (
+          <span className="truncate text-[13px] leading-tight opacity-55">
+            {sublabel}
+          </span>
+        ) : null}
+      </span>
+    </MenuPrimitive.Item>
+  );
+}
+
+function GlassPopoverSeparator({
+  className,
+  ...props
+}: MenuPrimitive.Separator.Props) {
+  return (
+    <MenuPrimitive.Separator
+      className={cn("mx-5 my-2 h-px bg-black/10 dark:bg-white/12", className)}
+      {...props}
+    />
+  );
+}
+
+export {
+  GlassPopover,
+  GlassPopoverContent,
+  GlassPopoverItem,
+  GlassPopoverSeparator,
+  GlassPopoverTrigger,
+};
+export type { GlassPopoverContentProps, GlassPopoverItemProps };
+```
+
+---
+
+# Glass Slider
+
+> An iOS slider whose handle rests as a solid platter and lifts into a clear refracting lens while you drag, keeping the fill value readable through the glass. Overdragging rubber-bands past the ends, and a hidden native range input keeps it accessible.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-slider.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-slider
+```
+
+## Props
+
+### GlassSlider
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `value / defaultValue` | `number` | `50` | Controlled and uncontrolled value. |
+| `min / max` | `number` | `0 / 100` | Value range. |
+| `step` | `number` | `1` | Snap increment. |
+| `onValueChange` | `(value: number) => void` | `undefined` | Called with the snapped value while dragging. |
+| `disabled` | `boolean` | `false` | Disables interaction. |
+| `ariaLabel` | `string` | `"Value"` | Accessible label for the hidden range input. |
+
+## Usage
+
+```tsx
+import { ShowcaseCard } from "@/components/docs/showcase-card";
+import { GlassSlider } from "@/components/ui/glass-slider";
+
+function GlassSliderDemo() {
+  return (
+    <ShowcaseCard>
+      <GlassSlider ariaLabel="Volume" defaultValue={38} />
+    </ShowcaseCard>
+  );
+}
+
+export { GlassSliderDemo };
+```
+
+## Source
+
+#### `glass-slider.tsx`
+
+```tsx
+"use client";
+
+import { Glass, useGlassDark } from "@/components/ui/glass";
+import {
+  glassEase,
+  MotionValue,
+  PRESS_DURATION,
+  prefersReducedMotion,
+  rubberBand,
+  SpringDriver,
+  TRAVEL_DURATION,
+  tween,
+} from "@/components/ui/glass-motion";
+import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const TRACK_W = 240;
+const TRACK_H = 6;
+const THUMB_H = 22;
+const THUMB_W = Math.round(2 * THUMB_H);
+const TRAVEL = TRACK_W - THUMB_W;
+const LENS_HALF_W = THUMB_W / 2;
+const LENS_HALF_H = THUMB_H / 2;
+const LENS_R = THUMB_H / 2;
+const FAT_H = Math.round(0.75 * THUMB_H);
+const RUBBER_OVERSHOOT = TRACK_W * 0.05;
+const RUBBER_DAMPENING = 30;
+const BLEED =
+  Math.ceil(0.5 * Math.max(LENS_HALF_W, LENS_HALF_H) + RUBBER_OVERSHOOT) + 2;
+const PRESS_GROW = 1.5;
+const TINT_BLUR = 4;
+const REST_TINT = 1;
+const DEFORM_STIFFNESS = 180;
+const DEFORM_DAMPING = 14;
+const DEFORM_CAP = 0.35;
+const DEFORM_GAIN = 0.012;
+const DEFORM_EXP = 0.75;
+const HOLD_BOOST = 0.175;
+
+const PRIMARY = "#0a84ff";
+const BG4_LIGHT = "#e1dfdf";
+const BG4_DARK = "#2a2828";
+const SHADOW_STRONG_LIGHT = "rgba(46, 15, 15, 0.12)";
+const SHADOW_STRONG_DARK = "rgba(0, 0, 0, 0.5)";
+
+interface GlassSliderProps {
+  ariaLabel?: string;
+  className?: string;
+  defaultValue?: number;
+  disabled?: boolean;
+  max?: number;
+  min?: number;
+  onValueChange?: (value: number) => void;
+  step?: number;
+  value?: number;
+}
+
+function GlassSlider({
+  value,
+  defaultValue = 50,
+  min = 0,
+  max = 100,
+  step = 1,
+  onValueChange,
+  disabled = false,
+  ariaLabel = "Value",
+  className,
+}: GlassSliderProps) {
+  const dark = useGlassDark();
+  const [internal, setInternal] = useState(defaultValue);
+  const current = value ?? internal;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const markerRef = useRef<HTMLDivElement | null>(null);
+  const brightnessRef = useRef<HTMLDivElement | null>(null);
+  const tintRef = useRef<HTMLDivElement | null>(null);
+  const restShadowRef = useRef<HTMLDivElement | null>(null);
+  const pressShadowRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const fatWrapRef = useRef<HTMLDivElement | null>(null);
+  const fatFillRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const span = Math.max(max - min, 1e-6);
+  const toX = useCallback(
+    (v: number) => ((v - min) / span) * TRAVEL,
+    [min, span]
+  );
+  const toValue = useCallback(
+    (xv: number) => {
+      const clamped = Math.min(Math.max(xv, 0), TRAVEL);
+      const raw = min + (clamped / TRAVEL) * span;
+      return step > 0 ? Math.round((raw - min) / step) * step + min : raw;
+    },
+    [min, span, step]
+  );
+
+  const x = useRef(new MotionValue(toX(current)));
+  const lensHalfW = useRef(new MotionValue(LENS_HALF_W));
+  const lensHalfH = useRef(new MotionValue(LENS_HALF_H));
+  const lensR = useRef(new MotionValue(LENS_R));
+  const tintOpacity = useRef(new MotionValue(REST_TINT));
+  const tintBlur = useRef(new MotionValue(TINT_BLUR));
+  const fatScaleX = useRef(new MotionValue(0.85));
+  const fatScaleY = useRef(new MotionValue(0.525));
+  const shadowOpacity = useRef(new MotionValue(0));
+  const deform = useRef(new MotionValue(0));
+  const heldRef = useRef(false);
+  const activePointer = useRef<number | null>(null);
+  const grabClientX = useRef(0);
+  const grabX = useRef(0);
+  const frame = useRef(0);
+
+  const deformDriver = useRef<SpringDriver | null>(null);
+  if (!deformDriver.current) {
+    deformDriver.current = new SpringDriver(
+      deform.current,
+      { stiffness: DEFORM_STIFFNESS, damping: DEFORM_DAMPING },
+      () => {
+        const v = Math.abs(x.current.getVelocity());
+        const fromVelocity = DEFORM_GAIN * v ** DEFORM_EXP;
+        const boost = heldRef.current ? HOLD_BOOST : 0;
+        return Math.min(DEFORM_CAP, Math.max(fromVelocity, boost));
+      },
+      () => !heldRef.current && Math.abs(x.current.getVelocity()) < 0.005
+    );
+  }
+  const startDeform = useCallback(() => {
+    if (!prefersReducedMotion()) {
+      deformDriver.current?.start();
+    }
+  }, []);
+
+  const apply = useCallback(() => {
+    frame.current = 0;
+    const marker = markerRef.current;
+    if (!marker) {
+      return;
+    }
+    const xv = Math.min(
+      Math.max(x.current.get(), -RUBBER_OVERSHOOT),
+      TRAVEL + RUBBER_OVERSHOOT
+    );
+    const q = deform.current.get();
+    const w = 2 * lensHalfW.current.get() * (1 - 0.2 * q);
+    const h = 2 * lensHalfH.current.get() * (1 + 0.4 * q);
+    const r = lensR.current.get();
+    const centerX = BLEED + THUMB_W / 2 + xv;
+    const centerY = BLEED + THUMB_H / 2;
+    marker.style.width = `${w}px`;
+    marker.style.height = `${h}px`;
+    marker.style.borderRadius = `${r}px`;
+    marker.style.left = `${centerX - w / 2}px`;
+    marker.style.top = `${centerY - h / 2}px`;
+    if (tintRef.current) {
+      const t = tintOpacity.current.get();
+      tintRef.current.style.background = `rgba(255,255,255,${t})`;
+      const b = tintBlur.current.get();
+      const filter = b > 0.05 ? `blur(${b}px)` : "none";
+      tintRef.current.style.backdropFilter = filter;
+      tintRef.current.style.setProperty("-webkit-backdrop-filter", filter);
+    }
+    const so = shadowOpacity.current.get();
+    if (restShadowRef.current) {
+      restShadowRef.current.style.opacity = String(1 - so);
+    }
+    if (pressShadowRef.current) {
+      pressShadowRef.current.style.opacity = String(so);
+    }
+    const fillW = Math.min(Math.max(xv + THUMB_W / 2, 0), TRACK_W);
+    if (fillRef.current) {
+      fillRef.current.style.width = `${fillW}px`;
+    }
+    const progress = TRAVEL > 0 ? Math.max(0, Math.min(1, xv / TRAVEL)) : 0;
+    if (fatFillRef.current) {
+      fatFillRef.current.style.transform = `translateX(${(progress - 1) * 100}%)`;
+    }
+    if (fatWrapRef.current) {
+      fatWrapRef.current.style.transform = `scale(${fatScaleX.current.get()}, ${fatScaleY.current.get()})`;
+    }
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) {
+      frame.current = requestAnimationFrame(apply);
+    }
+  }, [apply]);
+
+  const syncValue = useCallback(() => {
+    const next = toValue(x.current.get());
+    if (next !== currentRef.current) {
+      if (value === undefined) {
+        setInternal(next);
+      }
+      onValueChange?.(next);
+    }
+  }, [toValue, value, onValueChange]);
+
+  useEffect(() => {
+    const values = [
+      x.current,
+      lensHalfW.current,
+      lensHalfH.current,
+      lensR.current,
+      tintOpacity.current,
+      tintBlur.current,
+      fatScaleX.current,
+      fatScaleY.current,
+      shadowOpacity.current,
+      deform.current,
+    ];
+    const subs = values.map((v) => v.on(schedule));
+    apply();
+    return () => {
+      for (const off of subs) {
+        off();
+      }
+      cancelAnimationFrame(frame.current);
+      deformDriver.current?.stop();
+    };
+  }, [apply, schedule]);
+
+  useEffect(() => {
+    if (!heldRef.current) {
+      const target = toX(current);
+      if (Math.abs(x.current.get() - target) > 0.5) {
+        const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+        tween(x.current, target, d, glassEase);
+        startDeform();
+      }
+    }
+  }, [current, toX, startDeform]);
+
+  const press = useCallback(() => {
+    const d = prefersReducedMotion() ? 0 : TRAVEL_DURATION;
+    tween(lensHalfW.current, LENS_HALF_W * PRESS_GROW, d, glassEase);
+    tween(lensHalfH.current, LENS_HALF_H * PRESS_GROW, d, glassEase);
+    tween(lensR.current, LENS_R * PRESS_GROW, d, glassEase);
+    tween(tintOpacity.current, 0, d, glassEase);
+    tween(tintBlur.current, 0, d, glassEase);
+    tween(fatScaleX.current, 0.95, d, glassEase);
+    tween(fatScaleY.current, 0.975, d, glassEase);
+    tween(shadowOpacity.current, 1, d, glassEase);
+  }, []);
+
+  const release = useCallback(() => {
+    const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+    tween(lensHalfW.current, LENS_HALF_W, d, glassEase);
+    tween(lensHalfH.current, LENS_HALF_H, d, glassEase);
+    tween(lensR.current, LENS_R, d, glassEase);
+    tween(tintOpacity.current, REST_TINT, d, glassEase);
+    tween(tintBlur.current, TINT_BLUR, d, glassEase);
+    tween(fatScaleX.current, 0.85, d, glassEase);
+    tween(fatScaleY.current, 0.525, d, glassEase);
+    tween(shadowOpacity.current, 0, d, glassEase);
+  }, []);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (disabled || activePointer.current !== null) {
+        return;
+      }
+      activePointer.current = e.pointerId;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      heldRef.current = true;
+      inputRef.current?.focus({ preventScroll: true });
+      const root = rootRef.current;
+      if (!root) {
+        return;
+      }
+      const rect = root.getBoundingClientRect();
+      const localX = e.clientX - rect.left - THUMB_W / 2;
+      const clamped = Math.max(0, Math.min(TRAVEL, localX));
+      x.current.stop();
+      x.current.set(clamped);
+      syncValue();
+      grabClientX.current = e.clientX;
+      grabX.current = clamped;
+      press();
+      startDeform();
+    },
+    [disabled, press, startDeform, syncValue]
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointer.current) {
+        return;
+      }
+      let next = grabX.current + (e.clientX - grabClientX.current);
+      if (next < 0) {
+        next = -rubberBand(-next, RUBBER_OVERSHOOT, RUBBER_DAMPENING);
+      } else if (next > TRAVEL) {
+        next =
+          TRAVEL + rubberBand(next - TRAVEL, RUBBER_OVERSHOOT, RUBBER_DAMPENING);
+      }
+      x.current.set(next);
+      syncValue();
+    },
+    [syncValue]
+  );
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointer.current) {
+        return;
+      }
+      activePointer.current = null;
+      heldRef.current = false;
+      const target = Math.max(0, Math.min(TRAVEL, x.current.get()));
+      const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+      tween(x.current, target, d, glassEase);
+      startDeform();
+      release();
+    },
+    [release, startDeform]
+  );
+
+  const config = dark
+    ? {
+        scaleX: 0.133,
+        scaleY: 0.135,
+        brightness: 0.12,
+        specularAngle: 45,
+        glowExponent: 1.5,
+        edgeExponent: 1.5,
+        specularDark: false,
+      }
+    : {
+        scaleX: 0.1,
+        scaleY: 0.1,
+        brightness: -0.02,
+        specularAngle: 30,
+        glowExponent: 2,
+        edgeExponent: 1,
+        specularDark: true,
+      };
+
+  return (
+    <div
+      className={cn("relative inline-block touch-none", className)}
+      style={{ flexShrink: 0, width: TRACK_W, height: THUMB_H, overflow: "visible" }}
+    >
+      <input
+        aria-label={ariaLabel}
+        className="sr-only"
+        max={max}
+        min={min}
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (value === undefined) {
+            setInternal(next);
+          }
+          onValueChange?.(next);
+        }}
+        ref={inputRef}
+        step={step}
+        type="range"
+        value={current}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute"
+        style={{
+          left: 0,
+          top: (THUMB_H - TRACK_H) / 2,
+          width: TRACK_W,
+          height: TRACK_H,
+          borderRadius: TRACK_H / 2,
+        }}
+      >
+        <div
+          className="absolute inset-0 rounded-[inherit]"
+          style={{ background: dark ? BG4_DARK : BG4_LIGHT }}
+        />
+        <div
+          className="absolute rounded-[inherit]"
+          ref={fillRef}
+          style={{
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: toX(current) + THUMB_W / 2,
+            background: PRIMARY,
+          }}
+        />
+      </div>
+      <Glass
+        chroma={0}
+        depth={2}
+        domeDepth={5}
+        edgeExponent={config.edgeExponent}
+        edgeHighlight={0.5}
+        edgeWidth={1}
+        glow={0.4}
+        glowExponent={config.glowExponent}
+        glowSpread={0.5}
+        lens={
+          <div className="absolute" data-glass-lens ref={markerRef}>
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              ref={brightnessRef}
+              style={{
+                background: config.brightness >= 0 ? "#fff" : "#000",
+                opacity: Math.abs(config.brightness),
+              }}
+            />
+            <div className="absolute inset-0 rounded-[inherit]" ref={tintRef} />
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              ref={restShadowRef}
+              style={{
+                boxShadow: `0 1.333px 5.333px ${dark ? SHADOW_STRONG_DARK : SHADOW_STRONG_LIGHT}`,
+              }}
+            />
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              ref={pressShadowRef}
+              style={{
+                opacity: 0,
+                boxShadow:
+                  "0 2px 6px rgba(0, 0, 0, 0.16), inset 0 -4px 10px rgba(0, 0, 0, 0.12)",
+              }}
+            />
+          </div>
+        }
+        resolution={2}
+        reveal
+        scaleX={config.scaleX}
+        scaleY={config.scaleY}
+        specularAngle={config.specularAngle}
+        specularDark={config.specularDark}
+        specularStrength={1.5}
+        splay={0.5}
+        style={{
+          position: "absolute",
+          left: -BLEED,
+          top: -BLEED,
+          width: TRACK_W + 2 * BLEED,
+          height: THUMB_H + 2 * BLEED,
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          className="absolute overflow-hidden"
+          ref={fatWrapRef}
+          style={{
+            left: BLEED,
+            top: BLEED + (THUMB_H - FAT_H) / 2,
+            width: TRACK_W,
+            height: FAT_H,
+            borderRadius: FAT_H / 2,
+            transform: "scale(0.85, 0.525)",
+          }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{ background: dark ? BG4_DARK : BG4_LIGHT }}
+          />
+          <div
+            className="absolute inset-0 rounded-[inherit]"
+            ref={fatFillRef}
+            style={{ background: PRIMARY }}
+          />
+        </div>
+      </Glass>
+      <div
+        aria-hidden="true"
+        className="absolute cursor-pointer"
+        onPointerCancel={onPointerUp}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        ref={rootRef}
+        style={{ left: 0, top: 0, width: TRACK_W, height: THUMB_H }}
+      />
+    </div>
+  );
+}
+
+export { GlassSlider };
+```
+
+---
+
+# Glass Switch
+
+> The iOS toggle. The thumb rests as an opaque platter and lifts into a clear warping lens on press, deforms with drag velocity like gel, and rubber-bands when dragged past the ends. Holding it keeps the lens raised until you let go.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-switch.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-switch
+```
+
+## Props
+
+### GlassSwitch
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `checked / defaultChecked` | `boolean` | `false` | Controlled and uncontrolled state. |
+| `onCheckedChange` | `(checked: boolean) => void` | `undefined` | Called when the state commits. |
+| `disabled` | `boolean` | `false` | Disables interaction. |
+| `name / value` | `string` | `undefined` | Form integration for the hidden checkbox. |
+| `ariaLabel` | `string` | `undefined` | Accessible label for the hidden checkbox. |
+
+## Usage
+
+```tsx
+import { ShowcaseCard } from "@/components/docs/showcase-card";
+import { GlassSwitch } from "@/components/ui/glass-switch";
+
+function GlassSwitchDemo() {
+  return (
+    <ShowcaseCard>
+      <GlassSwitch ariaLabel="Enable" defaultChecked />
+    </ShowcaseCard>
+  );
+}
+
+export { GlassSwitchDemo };
+```
+
+## Source
+
+#### `glass-switch.tsx`
+
+```tsx
+"use client";
+
+import { Glass, useGlassDark } from "@/components/ui/glass";
+import {
+  glassEase,
+  MotionValue,
+  PRESS_DURATION,
+  prefersReducedMotion,
+  RELEASE_DURATION,
+  rubberBand,
+  SpringDriver,
+  TRAVEL_DURATION,
+  tween,
+} from "@/components/ui/glass-motion";
+import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const TRACK_W = 74;
+const TRACK_H = 28;
+const THUMB_W = Math.round(0.6 * TRACK_W);
+const THUMB_H = TRACK_H - 6;
+const INSET = 3;
+const TRAVEL = TRACK_W - THUMB_W - 6;
+const TRACK_R = TRACK_H / 2;
+const LENS_HALF_W = THUMB_W / 2;
+const LENS_HALF_H = THUMB_H / 2;
+const LENS_R = THUMB_H / 2;
+const FILL_H = Math.round(0.75 * TRACK_H);
+const RUBBER_OVERSHOOT = TRACK_W * 0.1;
+const RUBBER_DAMPENING = 30;
+const BLEED =
+  Math.ceil(0.5 * Math.max(LENS_HALF_W, LENS_HALF_H) + RUBBER_OVERSHOOT) + 2;
+const HOLD_MS = 200;
+const DRAG_THRESHOLD = 3;
+const TAP_COLLAPSE_MS = 330;
+const PRESS_GROW = 1.5;
+const TINT_BLUR = 4;
+const REST_TINT = 1;
+const DEFORM_STIFFNESS = 180;
+const DEFORM_DAMPING = 14;
+const DEFORM_CAP = 0.35;
+const DEFORM_GAIN = 0.012;
+const DEFORM_EXP = 0.75;
+const HOLD_BOOST = 0.175;
+
+const PRIMARY = "#0a84ff";
+const BG4_LIGHT = "#e1dfdf";
+const BG4_DARK = "#2a2828";
+
+interface GlassSwitchProps {
+  ariaLabel?: string;
+  checked?: boolean;
+  className?: string;
+  defaultChecked?: boolean;
+  disabled?: boolean;
+  name?: string;
+  onCheckedChange?: (checked: boolean) => void;
+  value?: string;
+}
+
+function GlassSwitch({
+  checked,
+  defaultChecked = false,
+  onCheckedChange,
+  disabled = false,
+  name,
+  value,
+  ariaLabel,
+  className,
+}: GlassSwitchProps) {
+  const dark = useGlassDark();
+  const [internal, setInternal] = useState(defaultChecked);
+  const isOn = checked ?? internal;
+  const isOnRef = useRef(isOn);
+  isOnRef.current = isOn;
+
+  const markerRef = useRef<HTMLDivElement | null>(null);
+  const hitRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const brightnessRef = useRef<HTMLDivElement | null>(null);
+  const tintRef = useRef<HTMLDivElement | null>(null);
+  const shadowRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const x = useRef(new MotionValue(isOn ? TRAVEL : 0));
+  const lensHalfW = useRef(new MotionValue(LENS_HALF_W));
+  const lensHalfH = useRef(new MotionValue(LENS_HALF_H));
+  const lensR = useRef(new MotionValue(LENS_R));
+  const tintOpacity = useRef(new MotionValue(REST_TINT));
+  const tintBlur = useRef(new MotionValue(TINT_BLUR));
+  const fillScaleX = useRef(new MotionValue(0.85));
+  const fillScaleY = useRef(new MotionValue(0.525));
+  const shadowOpacity = useRef(new MotionValue(0));
+  const deform = useRef(new MotionValue(0));
+  const heldRef = useRef(false);
+  const frame = useRef(0);
+
+  const deformDriver = useRef<SpringDriver | null>(null);
+  if (!deformDriver.current) {
+    deformDriver.current = new SpringDriver(
+      deform.current,
+      { stiffness: DEFORM_STIFFNESS, damping: DEFORM_DAMPING },
+      () => {
+        const v = Math.abs(x.current.getVelocity());
+        const fromVelocity = DEFORM_GAIN * v ** DEFORM_EXP;
+        const boost = heldRef.current ? HOLD_BOOST : 0;
+        return Math.min(DEFORM_CAP, Math.max(fromVelocity, boost));
+      },
+      () => !heldRef.current && Math.abs(x.current.getVelocity()) < 0.005
+    );
+  }
+  const startDeform = useCallback(() => {
+    if (!prefersReducedMotion()) {
+      deformDriver.current?.start();
+    }
+  }, []);
+
+  const apply = useCallback(() => {
+    frame.current = 0;
+    const marker = markerRef.current;
+    if (!marker) {
+      return;
+    }
+    const xv = Math.min(
+      Math.max(x.current.get(), -RUBBER_OVERSHOOT),
+      TRAVEL + RUBBER_OVERSHOOT
+    );
+    const q = deform.current.get();
+    const w = 2 * lensHalfW.current.get() * (1 - 0.2 * q);
+    const h = 2 * lensHalfH.current.get() * (1 + 0.4 * q);
+    const r = lensR.current.get();
+    const centerX = BLEED + INSET + THUMB_W / 2 + xv;
+    const centerY = BLEED + TRACK_H / 2;
+    marker.style.width = `${w}px`;
+    marker.style.height = `${h}px`;
+    marker.style.borderRadius = `${r}px`;
+    marker.style.left = `${centerX - w / 2}px`;
+    marker.style.top = `${centerY - h / 2}px`;
+    if (tintRef.current) {
+      const t = tintOpacity.current.get();
+      tintRef.current.style.background = `rgba(255,255,255,${t})`;
+      const b = tintBlur.current.get();
+      const filter = b > 0.05 ? `blur(${b}px)` : "none";
+      tintRef.current.style.backdropFilter = filter;
+      tintRef.current.style.setProperty("-webkit-backdrop-filter", filter);
+    }
+    if (shadowRef.current) {
+      shadowRef.current.style.opacity = String(shadowOpacity.current.get());
+    }
+    if (hitRef.current) {
+      hitRef.current.style.transform = `translateX(${xv}px)`;
+    }
+    const progress = TRAVEL > 0 ? Math.max(0, Math.min(1, xv / TRAVEL)) : 0;
+    const fillBg = `color-mix(in srgb, ${dark ? BG4_DARK : BG4_LIGHT}, ${PRIMARY} ${progress * 100}%)`;
+    if (trackRef.current) {
+      trackRef.current.style.background = fillBg;
+    }
+    if (fillRef.current) {
+      fillRef.current.style.background = fillBg;
+      fillRef.current.style.transform = `scale(${fillScaleX.current.get()}, ${fillScaleY.current.get()})`;
+    }
+  }, [dark]);
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) {
+      frame.current = requestAnimationFrame(apply);
+    }
+  }, [apply]);
+
+  useEffect(() => {
+    const values = [
+      x.current,
+      lensHalfW.current,
+      lensHalfH.current,
+      lensR.current,
+      tintOpacity.current,
+      tintBlur.current,
+      fillScaleX.current,
+      fillScaleY.current,
+      shadowOpacity.current,
+      deform.current,
+    ];
+    const subs = values.map((v) => v.on(schedule));
+    apply();
+    return () => {
+      for (const off of subs) {
+        off();
+      }
+      cancelAnimationFrame(frame.current);
+      deformDriver.current?.stop();
+    };
+  }, [apply, schedule]);
+
+  const press = useCallback(() => {
+    const d = prefersReducedMotion() ? 0 : PRESS_DURATION;
+    tween(lensHalfW.current, LENS_HALF_W * PRESS_GROW, d, glassEase);
+    tween(lensHalfH.current, LENS_HALF_H * PRESS_GROW, d, glassEase);
+    tween(lensR.current, LENS_R * PRESS_GROW, d, glassEase);
+    tween(tintOpacity.current, 0, d, glassEase);
+    tween(tintBlur.current, 0, d, glassEase);
+    tween(fillScaleX.current, 0.95, d, glassEase);
+    tween(fillScaleY.current, 0.975, d, glassEase);
+    tween(shadowOpacity.current, 1, d, glassEase);
+  }, []);
+
+  const release = useCallback(() => {
+    const d = prefersReducedMotion() ? 0 : RELEASE_DURATION;
+    tween(lensHalfW.current, LENS_HALF_W, d, glassEase);
+    tween(lensHalfH.current, LENS_HALF_H, d, glassEase);
+    tween(lensR.current, LENS_R, d, glassEase);
+    tween(tintOpacity.current, REST_TINT, d, glassEase);
+    tween(tintBlur.current, TINT_BLUR, d, glassEase);
+    tween(fillScaleX.current, 0.85, d, glassEase);
+    tween(fillScaleY.current, 0.525, d, glassEase);
+    tween(shadowOpacity.current, 0, d, glassEase);
+  }, []);
+
+  const commit = useCallback(
+    (next: boolean) => {
+      if (next !== isOnRef.current) {
+        if (checked === undefined) {
+          setInternal(next);
+        }
+        onCheckedChange?.(next);
+      }
+    },
+    [checked, onCheckedChange]
+  );
+
+  const travelTo = useCallback(
+    (on: boolean, onComplete?: () => void) => {
+      const d = prefersReducedMotion() ? 0 : TRAVEL_DURATION;
+      tween(x.current, on ? TRAVEL : 0, d, glassEase, onComplete);
+      startDeform();
+    },
+    [startDeform]
+  );
+
+  const stateRef = useRef<"idle" | "pending" | "hold" | "tap">("idle");
+  const holdTimer = useRef(0);
+  const tapTimer = useRef(0);
+  const activePointer = useRef<number | null>(null);
+  const dragStartX = useRef(0);
+  const grabX = useRef(0);
+  const dragging = useRef(false);
+  const suppressClick = useRef(false);
+  const alive = useRef(true);
+
+  useEffect(
+    () => () => {
+      alive.current = false;
+      clearTimeout(holdTimer.current);
+      clearTimeout(tapTimer.current);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!heldRef.current && stateRef.current !== "tap") {
+      const target = isOn ? TRAVEL : 0;
+      if (Math.abs(x.current.get() - target) > 0.5) {
+        travelTo(isOn);
+      }
+    }
+  }, [isOn, travelTo]);
+
+  const tap = useCallback(
+    (next: boolean) => {
+      if (suppressClick.current) {
+        return;
+      }
+      commit(next);
+      if (stateRef.current === "idle") {
+        stateRef.current = "tap";
+        press();
+        heldRef.current = true;
+        startDeform();
+        clearTimeout(tapTimer.current);
+        tapTimer.current = window.setTimeout(() => {
+          heldRef.current = false;
+          release();
+        }, TAP_COLLAPSE_MS);
+        travelTo(next, () => {
+          if (alive.current && stateRef.current === "tap") {
+            stateRef.current = "idle";
+          }
+        });
+      }
+    },
+    [commit, press, release, startDeform, travelTo]
+  );
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (disabled || activePointer.current !== null) {
+        return;
+      }
+      activePointer.current = e.pointerId;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragStartX.current = e.clientX;
+      grabX.current = x.current.get();
+      dragging.current = false;
+      suppressClick.current = true;
+      clearTimeout(holdTimer.current);
+      clearTimeout(tapTimer.current);
+      stateRef.current = "pending";
+      holdTimer.current = window.setTimeout(() => {
+        if (stateRef.current === "pending") {
+          stateRef.current = "hold";
+          x.current.stop();
+          press();
+          heldRef.current = true;
+          startDeform();
+        }
+      }, HOLD_MS);
+    },
+    [disabled, press, startDeform]
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointer.current) {
+        return;
+      }
+      const delta = e.clientX - dragStartX.current;
+      if (!dragging.current) {
+        if (Math.abs(delta) < DRAG_THRESHOLD) {
+          return;
+        }
+        dragging.current = true;
+        x.current.stop();
+        grabX.current = x.current.get();
+        dragStartX.current = e.clientX;
+        clearTimeout(holdTimer.current);
+        heldRef.current = true;
+        startDeform();
+        if (stateRef.current !== "hold") {
+          stateRef.current = "hold";
+          press();
+        }
+      }
+      let next = grabX.current + (e.clientX - dragStartX.current);
+      if (next < 0) {
+        next = -rubberBand(-next, RUBBER_OVERSHOOT, RUBBER_DAMPENING);
+      } else if (next > TRAVEL) {
+        next =
+          TRAVEL + rubberBand(next - TRAVEL, RUBBER_OVERSHOOT, RUBBER_DAMPENING);
+      }
+      x.current.set(next);
+    },
+    [press, startDeform]
+  );
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointer.current) {
+        return;
+      }
+      activePointer.current = null;
+      clearTimeout(holdTimer.current);
+      if (dragging.current) {
+        stateRef.current = "idle";
+        heldRef.current = false;
+        release();
+        const next = Math.max(0, Math.min(TRAVEL, x.current.get())) > TRAVEL / 2;
+        travelTo(next);
+        commit(next);
+        requestAnimationFrame(() => {
+          suppressClick.current = false;
+        });
+      } else if (
+        stateRef.current === "pending" ||
+        stateRef.current === "tap"
+      ) {
+        stateRef.current = "tap";
+        suppressClick.current = false;
+        press();
+        heldRef.current = true;
+        startDeform();
+        clearTimeout(tapTimer.current);
+        tapTimer.current = window.setTimeout(() => {
+          heldRef.current = false;
+          release();
+        }, TAP_COLLAPSE_MS);
+        const next = !isOnRef.current;
+        commit(next);
+        suppressClick.current = true;
+        travelTo(next, () => {
+          if (alive.current && stateRef.current === "tap") {
+            stateRef.current = "idle";
+          }
+        });
+        requestAnimationFrame(() => {
+          suppressClick.current = false;
+        });
+      } else if (stateRef.current === "hold") {
+        stateRef.current = "idle";
+        heldRef.current = false;
+        release();
+        travelTo(isOnRef.current);
+        requestAnimationFrame(() => {
+          suppressClick.current = false;
+        });
+      } else {
+        suppressClick.current = false;
+      }
+    },
+    [commit, press, release, startDeform, travelTo]
+  );
+
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointer.current) {
+        return;
+      }
+      activePointer.current = null;
+      clearTimeout(holdTimer.current);
+      heldRef.current = false;
+      stateRef.current = "idle";
+      release();
+      travelTo(isOnRef.current);
+      requestAnimationFrame(() => {
+        suppressClick.current = false;
+      });
+    },
+    [release, travelTo]
+  );
+
+  const config = dark
+    ? {
+        brightness: 0.12,
+        specularAngle: 45,
+        specularStrength: 1,
+        glowExponent: 1.5,
+        edgeWidth: 2,
+        edgeExponent: 1.5,
+        specularDark: false,
+      }
+    : {
+        brightness: -0.02,
+        specularAngle: 30,
+        specularStrength: 1.5,
+        glowExponent: 2,
+        edgeWidth: 1.5,
+        edgeExponent: 1,
+        specularDark: true,
+      };
+
+  return (
+    <label
+      className={cn(
+        "relative block cursor-pointer rounded-full has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-40 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-[#0a84ff] has-[input:focus-visible]:outline-offset-3",
+        className
+      )}
+      style={{ flexShrink: 0, width: TRACK_W, height: TRACK_H, overflow: "visible" }}
+    >
+      <input
+        aria-label={ariaLabel}
+        checked={isOn}
+        className="sr-only"
+        disabled={disabled}
+        name={name}
+        onChange={(e) => tap(e.target.checked)}
+        onClick={(e) => {
+          if (suppressClick.current) {
+            e.preventDefault();
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            tap(!isOn);
+          }
+        }}
+        ref={inputRef}
+        role="switch"
+        type="checkbox"
+        value={value}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute"
+        style={{
+          left: 0,
+          top: 0,
+          width: TRACK_W,
+          height: TRACK_H,
+          borderRadius: TRACK_R,
+        }}
+        ref={trackRef}
+      />
+      <Glass
+        chroma={0}
+        depth={2}
+        domeDepth={6}
+        edgeHighlight={0.5}
+        edgeWidth={config.edgeWidth}
+        edgeExponent={config.edgeExponent}
+        glow={0.4}
+        glowExponent={config.glowExponent}
+        glowSpread={0.5}
+        lens={
+          <div className="absolute" data-glass-lens ref={markerRef}>
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              ref={brightnessRef}
+              style={{
+                background: config.brightness >= 0 ? "#fff" : "#000",
+                opacity: Math.abs(config.brightness),
+              }}
+            />
+            <div className="absolute inset-0 rounded-[inherit]" ref={tintRef} />
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              ref={shadowRef}
+              style={{
+                opacity: 0,
+                boxShadow:
+                  "0 2px 6px rgba(0, 0, 0, 0.16), inset 0 -4px 10px rgba(0, 0, 0, 0.12)",
+              }}
+            />
+          </div>
+        }
+        resolution={2}
+        reveal
+        scaleX={0.25}
+        scaleY={0.25}
+        specularAngle={config.specularAngle}
+        specularDark={config.specularDark}
+        specularStrength={config.specularStrength}
+        splay={0.4}
+        style={{
+          position: "absolute",
+          left: -BLEED,
+          top: -BLEED,
+          width: TRACK_W + 2 * BLEED,
+          height: TRACK_H + 2 * BLEED,
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          className="absolute"
+          style={{
+            left: BLEED,
+            top: BLEED + (TRACK_H - FILL_H) / 2,
+            width: TRACK_W,
+            height: FILL_H,
+            borderRadius: FILL_H / 2,
+            transform: "scale(0.85, 0.525)",
+          }}
+          ref={fillRef}
+        />
+      </Glass>
+      <div
+        className="absolute touch-none select-none"
+        onPointerCancel={onPointerCancel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        ref={hitRef}
+        style={{
+          left: INSET,
+          top: INSET,
+          width: THUMB_W,
+          height: THUMB_H,
+          willChange: "transform",
+        }}
+      />
+    </label>
+  );
+}
+
+export { GlassSwitch };
+```
+
+---
+
+# Glass Tabs
+
+> Base UI tabs where the selection indicator is a glass lens. It springs between options, stretching like a droplet with velocity, and sits behind the crisp labels so they stay perfectly legible while it slides.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-tabs.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-tabs
+```
+
+## Props
+
+### Tabs
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `value / defaultValue` | `string` | `undefined` | Controlled and uncontrolled selected tab. |
+| `onValueChange` | `(value) => void` | `undefined` | Called when the selection changes. |
+
+### TabsList
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `tint` | `number` | `0` | Glass tint of the selection lens from 0 (clear) to 1 (opaque). |
+
+### TabsTrigger
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `value` | `string` | `required` | Tab identifier this trigger selects. |
+
+## Usage
+
+```tsx
+import { Chart, Gear, Grid, House } from "@/components/docs/icons";
+import { ShowcaseCard } from "@/components/docs/showcase-card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/glass-tabs";
+
+const ITEMS = [
+  { value: "home", label: "Home", Icon: House },
+  { value: "library", label: "Library", Icon: Grid },
+  { value: "stats", label: "Stats", Icon: Chart },
+  { value: "settings", label: "Settings", Icon: Gear },
+];
+
+function GlassTabsDemo({ tint }: { tint?: number }) {
+  return (
+    <ShowcaseCard>
+      <Tabs defaultValue="home">
+        <TabsList tint={tint}>
+          {ITEMS.map(({ value, label, Icon }) => (
+            <TabsTrigger key={value} value={value}>
+              <Icon className="size-[18px]" />
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    </ShowcaseCard>
+  );
+}
+
+export { GlassTabsDemo };
+```
+
+## Source
+
+#### `glass-tabs.tsx`
+
+```tsx
+"use client";
+
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+import { Glass, isSafariBrowser, useGlassDark } from "@/components/ui/glass";
+import {
+  MotionValue,
+  prefersReducedMotion,
+  SpringDriver,
+} from "@/components/ui/glass-motion";
+import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useRef } from "react";
+
+const PAD_X = 40;
+const PAD_Y = 80;
+const INDICATOR_SPRING = { stiffness: 50, damping: 13 };
+const DEFORM_SPRING = { stiffness: 66, damping: 9 };
+const VELOCITY_SCALE = 0.134;
+const DEFORM_CLAMP = 0.3;
+const SQUEEZE_X = 0.3;
+const STRETCH_X = 2;
+const RATIO_Y = 4;
+
+const BG1_LIGHT = "#faf9f9";
+const BG1_DARK = "#100f0f";
+const BORDER1_LIGHT = "#2e0f0f14";
+const BORDER1_DARK = "#ffffff14";
+const BODY_LIGHT = "#fff";
+const BODY_DARK = "#100f0f";
+
+function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
+  return (
+    <TabsPrimitive.Root
+      className={cn("flex flex-col gap-3", className)}
+      data-slot="tabs"
+      {...props}
+    />
+  );
+}
+
+interface TabsListProps extends TabsPrimitive.List.Props {
+  tint?: number;
+}
+
+function TabsList({
+  className,
+  children,
+  tint = 0,
+  ...props
+}: TabsListProps) {
+  const dark = useGlassDark();
+  const safari = isSafariBrowser();
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const markerRef = useRef<HTMLDivElement | null>(null);
+
+  const cx = useRef(new MotionValue(0));
+  const cy = useRef(new MotionValue(0));
+  const hw = useRef(new MotionValue(0));
+  const hh = useRef(new MotionValue(0));
+  const deform = useRef(new MotionValue(0));
+  const initialized = useRef(false);
+  const frame = useRef(0);
+
+  const apply = useCallback(() => {
+    frame.current = 0;
+    const marker = markerRef.current;
+    if (!marker) {
+      return;
+    }
+    const q = Math.max(0, deform.current.get());
+    const widthFactor = 1 - q * (q > 0 ? SQUEEZE_X : STRETCH_X);
+    const heightFactor = 1 + q * RATIO_Y;
+    const w = Math.max(hw.current.get() * 2 * widthFactor, 0);
+    const h = Math.max(hh.current.get() * 2 * heightFactor, 0);
+    marker.style.width = `${w}px`;
+    marker.style.height = `${h}px`;
+    marker.style.borderRadius = `${Math.min(w, h) / 2}px`;
+    marker.style.left = `${PAD_X + cx.current.get() - w / 2}px`;
+    marker.style.top = `${PAD_Y + cy.current.get() - h / 2}px`;
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) {
+      frame.current = requestAnimationFrame(apply);
+    }
+  }, [apply]);
+
+  const springTargets = useRef({ cx: 0, cy: 0, hw: 0, hh: 0 });
+  const springDrivers = useRef<SpringDriver[] | null>(null);
+  if (!springDrivers.current) {
+    springDrivers.current = [
+      new SpringDriver(cx.current, INDICATOR_SPRING, () => springTargets.current.cx),
+      new SpringDriver(cy.current, INDICATOR_SPRING, () => springTargets.current.cy),
+      new SpringDriver(hw.current, INDICATOR_SPRING, () => springTargets.current.hw),
+      new SpringDriver(hh.current, INDICATOR_SPRING, () => springTargets.current.hh),
+    ];
+  }
+
+  const deformDriver = useRef<SpringDriver | null>(null);
+  if (!deformDriver.current) {
+    deformDriver.current = new SpringDriver(
+      deform.current,
+      DEFORM_SPRING,
+      () => {
+        const list = listRef.current;
+        const width = list
+          ? list.getBoundingClientRect().width + 2 * PAD_X
+          : 1;
+        const vNorm = Math.abs(cx.current.getVelocity()) / Math.max(width, 1);
+        return Math.min(DEFORM_CLAMP, Math.sqrt(vNorm) * VELOCITY_SCALE);
+      },
+      () => Math.abs(cx.current.getVelocity()) < 0.005
+    );
+  }
+
+  const measure = useCallback(() => {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+    const active = list.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!active) {
+      return;
+    }
+    const listRect = list.getBoundingClientRect();
+    const rect = active.getBoundingClientRect();
+    const targets = springTargets.current;
+    targets.cx = rect.left - listRect.left + rect.width / 2;
+    targets.cy = rect.top - listRect.top + rect.height / 2;
+    targets.hw = rect.width / 2;
+    targets.hh = rect.height / 2;
+    if (!initialized.current || prefersReducedMotion()) {
+      initialized.current = true;
+      cx.current.jump(targets.cx);
+      cy.current.jump(targets.cy);
+      hw.current.jump(targets.hw);
+      hh.current.jump(targets.hh);
+      apply();
+      return;
+    }
+    for (const driver of springDrivers.current ?? []) {
+      driver.start();
+    }
+    deformDriver.current?.start();
+  }, [apply]);
+
+  useEffect(() => {
+    const subs = [
+      cx.current.on(() => {
+        schedule();
+        deformDriver.current?.start();
+      }),
+      cy.current.on(schedule),
+      hw.current.on(schedule),
+      hh.current.on(schedule),
+      deform.current.on(schedule),
+    ];
+    measure();
+    const list = listRef.current;
+    const observer = new MutationObserver(measure);
+    if (list) {
+      observer.observe(list, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["aria-selected"],
+      });
+    }
+    const resize = new ResizeObserver(() => {
+      initialized.current = false;
+      measure();
+    });
+    if (list) {
+      resize.observe(list);
+    }
+    return () => {
+      for (const off of subs) {
+        off();
+      }
+      observer.disconnect();
+      resize.disconnect();
+      cancelAnimationFrame(frame.current);
+      for (const driver of springDrivers.current ?? []) {
+        driver.stop();
+      }
+      deformDriver.current?.stop();
+    };
+  }, [measure, schedule]);
+
+  const config = dark
+    ? {
+        brightness: 0.06,
+        specularAngle: 45,
+        glow: 0.5,
+        glowSpread: 0.3,
+        glowExponent: 1.5,
+        edgeHighlight: 0.6,
+        edgeWidth: 1,
+        edgeExponent: 1.5,
+        specularDark: false,
+      }
+    : {
+        brightness: -0.04,
+        specularAngle: 28,
+        glow: 0,
+        glowSpread: 0.5,
+        glowExponent: 3,
+        edgeHighlight: 0.15,
+        edgeWidth: 1.5,
+        edgeExponent: 1,
+        specularDark: true,
+      };
+
+  const pillStyle = {
+    background: dark ? BG1_DARK : BG1_LIGHT,
+    border: `1px solid ${dark ? BORDER1_DARK : BORDER1_LIGHT}`,
+  };
+
+  return (
+    <TabsPrimitive.List
+      className={cn("relative inline-flex rounded-full p-[2px]", className)}
+      data-slot="tabs-list"
+      ref={listRef}
+      style={pillStyle}
+      {...props}
+    >
+      <Glass
+        chroma={0.1}
+        className="pointer-events-none absolute z-0"
+        depth={2.5}
+        domeDepth={0}
+        edgeExponent={config.edgeExponent}
+        edgeHighlight={config.edgeHighlight}
+        edgeWidth={config.edgeWidth}
+        glow={config.glow}
+        glowExponent={config.glowExponent}
+        glowSpread={config.glowSpread}
+        lens={
+          <div className="absolute" data-glass-lens ref={markerRef}>
+            <div
+              className="absolute inset-0 rounded-[inherit]"
+              style={{
+                background: config.brightness >= 0 ? "#fff" : "#000",
+                opacity: Math.abs(config.brightness),
+              }}
+            />
+          </div>
+        }
+        reveal
+        scaleX={0.045}
+        scaleY={safari ? 0.075 : 0.025}
+        specularAngle={config.specularAngle}
+        specularDark={config.specularDark}
+        specularStrength={1}
+        splay={1}
+        tint={tint}
+        style={{
+          left: -PAD_X,
+          top: -PAD_Y,
+          width: `calc(100% + ${2 * PAD_X}px)`,
+          height: `calc(100% + ${2 * PAD_Y}px)`,
+        }}
+      >
+        <div
+          className="absolute inset-0"
+          style={{ background: dark ? BODY_DARK : BODY_LIGHT }}
+        />
+      </Glass>
+      <div className="relative z-10 flex">{children}</div>
+    </TabsPrimitive.List>
+  );
+}
+
+function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+  return (
+    <TabsPrimitive.Tab
+      className={cn(
+        "inline-flex cursor-pointer items-center gap-[6px] whitespace-nowrap rounded-full px-[13px] py-[10px] font-medium text-[#727274] text-sm leading-none transition-colors hover:text-[#5a5858] focus-visible:shadow-[0_0_0_2px_#9896ff] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:text-black dark:text-[#8f8e8e] dark:hover:text-[#bcbbbb] dark:data-[active]:text-white",
+        className
+      )}
+      data-slot="tabs-trigger"
+      {...props}
+    />
+  );
+}
+
+function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
+  return (
+    <TabsPrimitive.Panel
+      className={cn(
+        "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        className
+      )}
+      data-slot="tabs-content"
+      {...props}
+    />
+  );
+}
+
+export { Tabs, TabsContent, TabsList, TabsTrigger };
+```
+
+---
+
+# Glass Tooltip
+
+> A small frosted glass chip that scales in from its anchor on hover. Wrap a group in GlassTooltipProvider and adjacent tooltips share one delay, so moving between buttons feels instant, the same grouping iOS toolbars use.
+
+## Install
+
+```bash
+npx shadcn@latest add https://loreglasses.com/r/glass-tooltip.json
+# or, with the @lore-glass namespace registered:
+npx shadcn@latest add @lore-glass/glass-tooltip
+```
+
+## Props
+
+### GlassTooltipProvider
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `delay` | `number` | `600` | Hover delay in ms before the first tooltip opens. |
+| `closeDelay` | `number` | `0` | Delay in ms before a tooltip closes. |
+| `timeout` | `number` | `400` | Grace window in ms during which moving to a neighboring trigger opens its tooltip instantly. |
+
+### GlassTooltipContent
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `side` | `"top" \| "right" \| "bottom" \| "left"` | `"top"` | Which side of the trigger the chip appears on. |
+| `align` | `"start" \| "center" \| "end"` | `"center"` | Alignment against the trigger. |
+| `sideOffset` | `number` | `8` | Gap between trigger and chip in px. |
+| `tint` | `number` | `0.6` | Glass tint of the chip from 0 (clear) to 1 (opaque). |
+| `tintColor` | `string` | `theme` | Tint color as an r,g,b triple. |
+
+## Usage
+
+```tsx
+import { type CSSProperties, useState } from "react";
+import { Bell, Gear, Share } from "@/components/docs/icons";
+import { ShowcaseGrid } from "@/components/docs/showcase-grid";
+import { Glass } from "@/components/ui/glass";
+
+const STAGE_W = 380;
+const STAGE_H = 200;
+const SIZE = 52;
+const GAP = 26;
+const ROW_Y = STAGE_H / 2 - SIZE / 2 + 18;
+const TIP_H = 36;
+const TIP_GAP = 14;
+
+const ITEMS = [
+  { id: "bell", label: "Notifications", Icon: Bell, tipW: 118 },
+  { id: "gear", label: "Settings", Icon: Gear, tipW: 86 },
+  { id: "share", label: "Share", Icon: Share, tipW: 70 },
+];
+
+const TOTAL = ITEMS.length * SIZE + (ITEMS.length - 1) * GAP;
+const START = (STAGE_W - TOTAL) / 2;
+const ITEM_X = ITEMS.map((_, i) => START + i * (SIZE + GAP));
+
+const frameStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  width: STAGE_W,
+  height: STAGE_H,
+  transform: "translate(-50%, -50%)",
+};
+
+const lensShadow =
+  "inset 0 1px 1.5px rgba(255,255,255,0.55), 0 14px 30px -12px rgba(0,0,0,0.35)";
+
+function GlassTooltipDemo({ tint }: { tint?: number }) {
+  const [hovered, setHovered] = useState<number | null>(0);
+
+  const tip = hovered === null ? null : ITEMS[hovered];
+  const tipCx = hovered === null ? 0 : ITEM_X[hovered] + SIZE / 2;
+  const tipW = tip?.tipW ?? 0;
+  const tipStyle: CSSProperties | null = tip
+    ? {
+        position: "absolute",
+        left: tipCx - tipW / 2,
+        top: ROW_Y - TIP_GAP - TIP_H,
+        width: tipW,
+        height: TIP_H,
+        borderRadius: TIP_H / 2,
+        boxShadow: lensShadow,
+      }
+    : null;
+
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-[20px]">
+      <Glass
+        chroma={0.3}
+        className="absolute inset-0"
+        depth={9}
+        domeDepth={10}
+        edgeHighlight={0.3}
+        glow={0.12}
+        lens={
+          <div style={frameStyle}>
+            {ITEMS.map((it, i) => (
+              <div
+                data-glass-lens
+                key={it.id}
+                style={{
+                  position: "absolute",
+                  left: ITEM_X[i],
+                  top: ROW_Y,
+                  width: SIZE,
+                  height: SIZE,
+                  borderRadius: SIZE / 2,
+                  boxShadow: lensShadow,
+                }}
+              />
+            ))}
+            {tipStyle ? <div data-glass-lens style={tipStyle} /> : null}
+          </div>
+        }
+        tint={tint}
+      >
+        <ShowcaseGrid />
+      </Glass>
+
+      <div style={frameStyle}>
+        {ITEMS.map((it, i) => (
+          <button
+            aria-label={it.label}
+            className="absolute flex cursor-pointer items-center justify-center text-[#1d1d1f] outline-none"
+            key={it.id}
+            onFocus={() => setHovered(i)}
+            onPointerEnter={() => setHovered(i)}
+            style={{ left: ITEM_X[i], top: ROW_Y, width: SIZE, height: SIZE }}
+            type="button"
+          >
+            <it.Icon className="size-5" />
+          </button>
+        ))}
+        {tip ? (
+          <div
+            className="absolute flex items-center justify-center font-medium text-[#1d1d1f] text-[13px]"
+            style={{
+              left: tipCx - tipW / 2,
+              top: ROW_Y - TIP_GAP - TIP_H,
+              width: tipW,
+              height: TIP_H,
+            }}
+          >
+            {tip.label}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export { GlassTooltipDemo };
+```
+
+## Source
+
+#### `glass-tooltip.tsx`
+
+```tsx
+"use client";
+
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import { GlassSurface } from "@/components/ui/glass-surface";
+import { cn } from "@/lib/utils";
+
+const GlassTooltipProvider = TooltipPrimitive.Provider;
+const GlassTooltip = TooltipPrimitive.Root;
+const GlassTooltipTrigger = TooltipPrimitive.Trigger;
+
+interface GlassTooltipContentProps extends TooltipPrimitive.Popup.Props {
+  align?: TooltipPrimitive.Positioner.Props["align"];
+  side?: TooltipPrimitive.Positioner.Props["side"];
+  sideOffset?: number;
+  tint?: number;
+  tintColor?: string;
+}
+
+function GlassTooltipContent({
+  align = "center",
+  side = "top",
+  sideOffset = 8,
+  tint = 0.6,
+  tintColor,
+  className,
+  children,
+  ...props
+}: GlassTooltipContentProps) {
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Positioner
+        align={align}
+        className="z-50"
+        side={side}
+        sideOffset={sideOffset}
+      >
+        <TooltipPrimitive.Popup
+          className={cn(
+            "origin-[var(--transform-origin)] transition-[scale,opacity] duration-200 ease-[cubic-bezier(0.34,1.3,0.64,1)] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[ending-style]:duration-100 data-[starting-style]:scale-75",
+            className
+          )}
+          {...props}
+        >
+          <GlassSurface
+            blur={12}
+            radius={999}
+            tint={tint}
+            tintColor={tintColor}
+          >
+            <span className="block whitespace-nowrap px-3.5 py-2 font-medium text-[#1d1d1f] text-[13px] leading-none dark:text-[#f5f5f7]">
+              {children}
+            </span>
+          </GlassSurface>
+        </TooltipPrimitive.Popup>
+      </TooltipPrimitive.Positioner>
+    </TooltipPrimitive.Portal>
+  );
+}
+
+export {
+  GlassTooltip,
+  GlassTooltipContent,
+  GlassTooltipProvider,
+  GlassTooltipTrigger,
+};
+export type { GlassTooltipContentProps };
+```

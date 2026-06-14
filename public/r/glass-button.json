@@ -4,7 +4,7 @@
   "title": "Glass Button",
   "description": "An iOS-style liquid-glass button: a circular icon disc or text capsule on a frosted glass surface, with a velocity-eased press gel that squeezes the button and clears the tint while held.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -13,5 +13,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Import { GlassButton } from \"@/components/ui/glass-button\". variant=\"icon\" (default) renders a fixed-size disc (pass an icon as children with an aria-label); variant=\"capsule\" renders a text pill that grows with its label. `size` sets disc diameter / capsule height in px; `tint` is 0 (clear) to 1 (opaque). All native <button> props are forwarded.",
   "type": "registry:ui"
 }

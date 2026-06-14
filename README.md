@@ -37,6 +37,31 @@ npx shadcn@latest add https://loreglasses.com/r/glass-popover.json
 
 Swap `glass-popover` for any install name above. Components depend on the `glass` package through registry dependencies, so it installs automatically.
 
+Or register the `@lore-glass` namespace once in your `components.json` and add by short name:
+
+```json
+{
+  "registries": {
+    "@lore-glass": "https://loreglasses.com/r/{name}.json"
+  }
+}
+```
+
+```bash
+npx shadcn@latest add @lore-glass/glass-popover
+```
+
+## For AI agents
+
+The docs are published as plain text so a coding agent can read and implement the components without scraping a client-rendered site:
+
+- [`/llms.txt`](https://loreglasses.com/llms.txt) — index of every component with install commands.
+- [`/llms-full.txt`](https://loreglasses.com/llms-full.txt) — every component doc plus full source in one file.
+- `/docs/components/{name}.md` — a markdown mirror of each component page.
+- [`AGENTS.md`](./AGENTS.md) — the lens contract, tint model, and gotchas for agents working in a consuming project.
+
+Every registry item also carries a `docs` field, so an agent that runs the install command gets the usage contract inline.
+
 ## Usage
 
 ```tsx

@@ -7,7 +7,7 @@
     "@base-ui/react"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -16,5 +16,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Base UI tabs with a glass selection indicator. Import the parts from \"@/components/ui/glass-tabs\" and compose GlassTabs / GlassTabsList / GlassTabsTab / GlassTabsPanel. The lens springs between tabs and sits behind the labels so they stay legible. Accepts `tint` (0 clear to 1 tinted).",
   "type": "registry:ui"
 }

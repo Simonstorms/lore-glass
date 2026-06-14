@@ -1,0 +1,26 @@
+# lore-glass
+
+> Apple Liquid Glass components for React, installed as source with the shadcn CLI. A cross-browser SVG displacement-map lens refracts live DOM, and a family of components builds the iOS interactions on top.
+
+Install any component with `npx shadcn@latest add https://loreglasses.com/r/{name}.json`, or register the `@lore-glass` namespace in `components.json` (`"registries": { "@lore-glass": "https://loreglasses.com/r/{name}.json" }`) and add by name. Requires Tailwind v4 and React 19 in a shadcn-initialized project.
+
+## Components
+
+- [Glass](https://loreglasses.com/docs/components/glass.md): The core lens engine. It refracts its own children through an SVG feDisplacementMap, so text stays selectable and links stay clickable under the lens. Every element marked data-glass-lens becomes a movable refracting region. Works in Chromium, Safari, and Firefox. Install: `@lore-glass/glass`
+- [Button](https://loreglasses.com/docs/components/glass-button.md): The circular iOS icon button and its text capsule sibling. A frosted glass disc blurs whatever sits behind it, and pressing squeezes the button with a gel response: the disc scales down and the tint clears while held. Install: `@lore-glass/glass-button`
+- [Dialog](https://loreglasses.com/docs/components/glass-dialog.md): A modal alert sheet on a glass panel. The page dims behind a blurred scrim and the frosted panel scales into place, like an iOS alert. Built on Base UI Dialog, so focus trapping, escape, and outside-press dismissal are handled. Install: `@lore-glass/glass-dialog`
+- [Input](https://loreglasses.com/docs/components/glass-input.md): An iOS search bar: a text field inside a frosted glass capsule with a leading icon slot. Focusing glows in a soft ring while the tint lifts slightly, so the field reads as raised glass while you type. Install: `@lore-glass/glass-input`
+- [Popover](https://loreglasses.com/docs/components/glass-popover.md): The iOS context menu: a frosted glass panel attached to its trigger, blurring whatever sits behind it, with icon, label, and sublabel rows. Built on Base UI Menu, so arrow keys, typeahead, and close-on-select work out of the box. Install: `@lore-glass/glass-popover`
+- [Slider](https://loreglasses.com/docs/components/glass-slider.md): An iOS slider whose handle rests as a solid platter and lifts into a clear refracting lens while you drag, keeping the fill value readable through the glass. Overdragging rubber-bands past the ends, and a hidden native range input keeps it accessible. Install: `@lore-glass/glass-slider`
+- [Switch](https://loreglasses.com/docs/components/glass-switch.md): The iOS toggle. The thumb rests as an opaque platter and lifts into a clear warping lens on press, deforms with drag velocity like gel, and rubber-bands when dragged past the ends. Holding it keeps the lens raised until you let go. Install: `@lore-glass/glass-switch`
+- [Tabs](https://loreglasses.com/docs/components/glass-tabs.md): Base UI tabs where the selection indicator is a glass lens. It springs between options, stretching like a droplet with velocity, and sits behind the crisp labels so they stay perfectly legible while it slides. Install: `@lore-glass/glass-tabs`
+- [Tooltip](https://loreglasses.com/docs/components/glass-tooltip.md): A small frosted glass chip that scales in from its anchor on hover. Wrap a group in GlassTooltipProvider and adjacent tooltips share one delay, so moving between buttons feels instant, the same grouping iOS toolbars use. Install: `@lore-glass/glass-tooltip`
+
+## Docs
+
+- [Concepts and installation](https://loreglasses.com/docs/installation.md): the lens contract, the tint model, overlay panels, browser support, and gotchas
+- [Full text (everything in one file)](https://loreglasses.com/llms-full.txt): every component doc plus full component source
+
+## Optional
+
+- [GitHub repository](https://github.com/Simonstorms/lore-glass)

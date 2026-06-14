@@ -4,7 +4,7 @@
   "title": "Glass Slider",
   "description": "A liquid-glass slider with a native range input back-sync: the handle lifts into a refracting lens while dragging, keeping the fill value readable through the glass, and settles back to a solid platter on release.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass.json"
+    "https://loreglasses.com/r/glass.json"
   ],
   "files": [
     {
@@ -13,5 +13,6 @@
       "type": "registry:ui"
     }
   ],
+  "docs": "Import { GlassSlider } from \"@/components/ui/glass-slider\". Controlled via value / onValueChange. The handle lifts into a clear lens while dragging and rubber-bands past the ends; a hidden native range input keeps it accessible. Takes no tint prop.",
   "type": "registry:ui"
 }

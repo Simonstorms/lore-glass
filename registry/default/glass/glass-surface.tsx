@@ -4,6 +4,7 @@ import {
   generateLensMap,
   isSafariBrowser,
   useGlassDark,
+  useHydrated,
 } from "@/components/ui/glass";
 import { cn } from "@/lib/utils";
 import {
@@ -123,7 +124,8 @@ function GlassSurface({
   ]);
   const baseId = useId().replace(/[^a-zA-Z0-9-]/g, "");
   const filterId = `${baseId}-surface`;
-  const [refract] = useState(refractionSupported);
+  const [supported] = useState(refractionSupported);
+  const refract = useHydrated() && supported;
   const chromaOn = chroma > 0;
 
   const blurPx = Math.max(t * blur * 0.5, MIN_BLUR);

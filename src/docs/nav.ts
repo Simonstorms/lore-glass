@@ -33,10 +33,9 @@ const NAV: NavGroup[] = [
   },
 ];
 
-const GITHUB_URL = "https://github.com/Simonstorms/lore-glass";
 const REGISTRY_BASE = "https://loreglasses.com/r";
 const REGISTRY_NAMESPACE = "@lore-glass";
 const REGISTRY_TEMPLATE = `${REGISTRY_BASE}/{name}.json`;
 
-export { GITHUB_URL, NAV, REGISTRY_BASE, REGISTRY_NAMESPACE, REGISTRY_TEMPLATE };
+export { NAV, REGISTRY_BASE, REGISTRY_NAMESPACE, REGISTRY_TEMPLATE };
 export type { NavGroup, NavItem };
