@@ -34,8 +34,7 @@ const NAV: NavGroup[] = [
 ];
 
 const GITHUB_URL = "https://github.com/Simonstorms/lore-glass";
-const REGISTRY_BASE =
-  "https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r";
+const REGISTRY_BASE = "https://loreglasses.com/r";
 const REGISTRY_NAMESPACE = "@lore-glass";
 const REGISTRY_TEMPLATE = `${REGISTRY_BASE}/{name}.json`;
 

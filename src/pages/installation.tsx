@@ -1,6 +1,6 @@
 import { CodeBlock } from "@/components/docs/code-block";
 import { DocPage, DocProse, DocSection } from "@/components/docs/doc-page";
-import { InstallTabs, RegistryTabs } from "@/components/docs/install-tabs";
+import { InstallTabs } from "@/components/docs/install-tabs";
 
 const usage = `import { Glass } from "@/components/ui/glass";
 import { GlassButton } from "@/components/ui/glass-button";`;
@@ -20,16 +20,6 @@ function InstallationPage() {
         </DocProse>
       </DocSection>
 
-      <DocSection id="registry" title="Add the registry">
-        <DocProse>
-          Register the @lore-glass namespace once. It points the shadcn CLI at
-          the registry so you can add any component by name.
-        </DocProse>
-        <div className="mt-4">
-          <RegistryTabs />
-        </div>
-      </DocSection>
-
       <DocSection id="core" title="Install the engine">
         <DocProse>
           Everything builds on the glass package: the lens engine, the motion
@@ -45,8 +35,8 @@ function InstallationPage() {
       <DocSection id="components" title="Install components">
         <DocProse>
           Each component ships as one file under components/ui. Swap the name
-          after @lore-glass/ for any component in the sidebar, for example the
-          popover:
+          at the end of the URL for any component in the sidebar, for example
+          the popover:
         </DocProse>
         <div className="mt-4">
           <InstallTabs name="glass-popover" />

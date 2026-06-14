@@ -95,7 +95,7 @@ function LoreGlassHero() {
 
   const body = (
     <div>
-      <h1 className="font-semibold text-[46px] text-white leading-[0.95] tracking-tight drop-shadow-[0_2px_20px_rgba(0,0,0,0.45)] sm:text-[64px]">
+      <h1 className="font-display font-bold text-[46px] text-white leading-[0.95] tracking-tight drop-shadow-[0_2px_20px_rgba(0,0,0,0.45)] sm:text-[68px]">
         lore-glass
       </h1>
       <p className="mt-4 max-w-md text-[15px] text-white/85 leading-relaxed drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]">

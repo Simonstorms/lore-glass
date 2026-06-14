@@ -1,5 +1,5 @@
 import { CopyButton } from "@/components/docs/copy-button";
-import { REGISTRY_NAMESPACE, REGISTRY_TEMPLATE } from "@/docs/nav";
+import { REGISTRY_BASE } from "@/docs/nav";
 import { cn } from "@/lib/utils";
 import { useSyncExternalStore } from "react";
 
@@ -42,20 +42,6 @@ function commandFor(pm: Pm, target: string): string {
       return `yarn dlx shadcn@latest add ${target}`;
     case "bun":
       return `bunx shadcn@latest add ${target}`;
-  }
-}
-
-function registryCommandFor(pm: Pm): string {
-  const arg = `${REGISTRY_NAMESPACE}=${REGISTRY_TEMPLATE}`;
-  switch (pm) {
-    case "pnpm":
-      return `pnpm dlx shadcn@latest registry add ${arg}`;
-    case "npm":
-      return `npx shadcn@latest registry add ${arg}`;
-    case "yarn":
-      return `yarn dlx shadcn@latest registry add ${arg}`;
-    case "bun":
-      return `bunx shadcn@latest registry add ${arg}`;
   }
 }
 
@@ -106,11 +92,7 @@ function PmCommand({ build }: { build: (pm: Pm) => string }) {
 }
 
 function InstallTabs({ name }: { name: string }) {
-  return <PmCommand build={(pm) => commandFor(pm, `${REGISTRY_NAMESPACE}/${name}`)} />;
+  return <PmCommand build={(pm) => commandFor(pm, `${REGISTRY_BASE}/${name}.json`)} />;
 }
 
-function RegistryTabs() {
-  return <PmCommand build={registryCommandFor} />;
-}
-
-export { InstallTabs, installCommandFor, RegistryTabs, usePm };
+export { InstallTabs, installCommandFor, usePm };

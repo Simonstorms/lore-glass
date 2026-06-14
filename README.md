@@ -22,21 +22,11 @@ Docs and live demos: run `bun run dev`.
 
 Requires Tailwind v4 and React 19 in a shadcn-initialized project.
 
-Register the `@lore-glass` namespace once:
-
 ```bash
-npx shadcn@latest registry add @lore-glass=https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/{name}.json
-```
-
-Then add any component by name:
-
-```bash
-npx shadcn@latest add @lore-glass/glass-popover
+npx shadcn@latest add https://loreglasses.com/r/glass-popover.json
 ```
 
 Swap `glass-popover` for any install name above. Components depend on the `glass` package through registry dependencies, so it installs automatically.
-
-Prefer no config? You can skip the namespace and pass the full URL instead: `npx shadcn@latest add https://raw.githubusercontent.com/Simonstorms/lore-glass/main/public/r/glass-popover.json`.
 
 ## Usage
 

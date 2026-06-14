@@ -42,16 +42,6 @@ function SiteSidebar({ open, onClose }: { open: boolean; onClose: () => void }) 
   return (
     <>
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 overflow-y-auto py-10 pr-6 lg:block">
-        <Link
-          className="mb-7 flex items-center gap-2.5 px-2.5 font-semibold text-[15px] text-foreground tracking-tight"
-          to="/"
-        >
-          <span
-            aria-hidden="true"
-            className="glass-lens inline-block size-5 rounded-[7px] border border-border"
-          />
-          lore-glass
-        </Link>
         <NavLinks />
       </aside>
       {open ? (
@@ -63,10 +53,7 @@ function SiteSidebar({ open, onClose }: { open: boolean; onClose: () => void }) 
             type="button"
           />
           <div className="absolute top-0 bottom-0 left-0 w-72 overflow-y-auto bg-background p-5 shadow-xl">
-            <div className="mb-5 flex items-center justify-between">
-              <span className="font-semibold text-[15px] text-foreground">
-                lore-glass
-              </span>
+            <div className="mb-5 flex items-center justify-end">
               <button
                 aria-label="Close navigation"
                 className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"

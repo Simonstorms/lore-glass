@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://loreglasses.com/sitemap.xml
