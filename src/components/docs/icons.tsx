@@ -8,6 +8,7 @@ import {
   Info as InfoIcon,
   LayoutGrid,
   Menu as MenuIcon,
+  MessagesSquare,
   Moon as MoonIcon,
   Pause as PauseIcon,
   Pencil as PencilIcon,
@@ -44,6 +45,7 @@ const Grid = styled(LayoutGrid);
 const House = styled(HouseIcon);
 const Info = styled(InfoIcon);
 const Menu = styled(MenuIcon);
+const Messages = styled(MessagesSquare);
 const Moon = styled(MoonIcon);
 const Pause = styled(PauseIcon, { fill: "currentColor" });
 const Pencil = styled(PencilIcon);
@@ -53,6 +55,23 @@ const Share = styled(ShareIcon);
 const Sliders = styled(SlidersHorizontal);
 const Sun = styled(SunIcon);
 const Trash = styled(Trash2);
+
+function MessagesFilled({ size = 24, absoluteStrokeWidth, strokeWidth, ...props }: LucideProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path d="M15.5 2h2A4.5 4.5 0 0 1 22 6.5v1A4.5 4.5 0 0 1 17.5 12h-2A4.5 4.5 0 0 1 11 7.5v-1A4.5 4.5 0 0 1 15.5 2Z" />
+      <path d="M6.6 7.8h1.8A4.4 4.4 0 0 1 12.8 12.2v1A4.4 4.4 0 0 1 8.4 17.6H7.9l-3.2 2.4A.55.55 0 0 1 3.8 19.6V17.4A4.4 4.4 0 0 1 2.2 13.2v-1A4.4 4.4 0 0 1 6.6 7.8Z" />
+    </svg>
+  );
+}
 
 function Github({ size = 24, absoluteStrokeWidth, strokeWidth, ...props }: LucideProps) {
   return (
@@ -85,6 +104,8 @@ export {
   House,
   Info,
   Menu,
+  Messages,
+  MessagesFilled,
   Moon,
   Pause,
   Pencil,

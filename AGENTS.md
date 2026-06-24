@@ -47,7 +47,7 @@ npx shadcn@latest add @lore-glass/glass-popover
 Every component depends on the `glass` package through a registry dependency, so
 it installs automatically. Install names: `glass`, `glass-button`,
 `glass-dialog`, `glass-input`, `glass-popover`, `glass-slider`, `glass-switch`,
-`glass-tabs`, `glass-tooltip`.
+`glass-tab-bar`, `glass-tabs`, `glass-tooltip`.
 
 ## The two things that trip agents up
 

@@ -89,6 +89,7 @@ interface GlassSurfaceHandle {
 interface GlassSurfaceProps extends ComponentProps<"div"> {
   blur?: number;
   chroma?: number;
+  colorScheme?: "light" | "dark";
   handleRef?: RefObject<GlassSurfaceHandle | null>;
   radius?: number;
   saturation?: number;
@@ -100,6 +101,7 @@ interface GlassSurfaceProps extends ComponentProps<"div"> {
 function GlassSurface({
   blur = 12,
   chroma = 0,
+  colorScheme,
   handleRef,
   radius = 16,
   saturation = 1.5,
@@ -111,7 +113,8 @@ function GlassSurface({
   children,
   ...props
 }: GlassSurfaceProps) {
-  const dark = useGlassDark();
+  const autoDark = useGlassDark();
+  const dark = colorScheme ? colorScheme === "dark" : autoDark;
   const t = clamp01(tint);
   const tintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
   const tintRef = useRef<HTMLDivElement | null>(null);

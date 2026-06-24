@@ -15,6 +15,7 @@ const NAV: NavGroup[] = [
       { title: "Introduction", to: "/" },
       { title: "Installation", to: "/docs/installation" },
       { title: "Playground", to: "/playground" },
+      { title: "Studio", to: "/studio" },
     ],
   },
   {
@@ -27,6 +28,7 @@ const NAV: NavGroup[] = [
       { title: "Popover", to: "/docs/components/glass-popover" },
       { title: "Slider", to: "/docs/components/glass-slider" },
       { title: "Switch", to: "/docs/components/glass-switch" },
+      { title: "Tab Bar", to: "/docs/components/glass-tab-bar" },
       { title: "Tabs", to: "/docs/components/glass-tabs" },
       { title: "Tooltip", to: "/docs/components/glass-tooltip" },
     ],

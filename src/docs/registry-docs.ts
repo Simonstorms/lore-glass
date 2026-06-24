@@ -5,6 +5,7 @@ import { glassInputDoc } from "@/docs/components/glass-input";
 import { glassPopoverDoc } from "@/docs/components/glass-popover";
 import { glassSliderDoc } from "@/docs/components/glass-slider";
 import { glassSwitchDoc } from "@/docs/components/glass-switch";
+import { glassTabBarDoc } from "@/docs/components/glass-tab-bar";
 import { glassTabsDoc } from "@/docs/components/glass-tabs";
 import { glassTooltipDoc } from "@/docs/components/glass-tooltip";
 import type { ComponentDoc } from "@/docs/types";
@@ -17,6 +18,7 @@ const DOCS: ComponentDoc[] = [
   glassPopoverDoc,
   glassSliderDoc,
   glassSwitchDoc,
+  glassTabBarDoc,
   glassTabsDoc,
   glassTooltipDoc,
 ];

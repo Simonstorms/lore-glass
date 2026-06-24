@@ -167,7 +167,7 @@ function IntroductionPage() {
       <section className="mt-16">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="font-semibold text-[22px] text-foreground tracking-tight">
-            Nine components
+            Ten components
           </h2>
           <Link
             className="shrink-0 text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
@@ -177,7 +177,7 @@ function IntroductionPage() {
           </Link>
         </div>
         <p className="mt-1.5 max-w-md text-[14px] text-muted-foreground leading-relaxed">
-          A look at two. All nine install the same way, with a single shadcn
+          A look at two. All ten install the same way, with a single shadcn
           command.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">

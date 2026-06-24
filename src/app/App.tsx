@@ -7,6 +7,7 @@ import { ComponentDocPage } from "@/pages/component-doc-page";
 import { InstallationPage } from "@/pages/installation";
 import { IntroductionPage } from "@/pages/introduction";
 import { PlaygroundPage } from "@/pages/playground";
+import { StudioPage } from "@/pages/studio";
 
 function resolvePage(route: string): ReactNode {
   if (route === "/docs/installation") {
@@ -14,6 +15,9 @@ function resolvePage(route: string): ReactNode {
   }
   if (route === "/playground") {
     return <PlaygroundPage />;
+  }
+  if (route === "/studio") {
+    return <StudioPage />;
   }
   const component = route.match(/^\/docs\/components\/([a-z0-9-]+)$/);
   if (component) {

@@ -389,6 +389,7 @@ function useHydrated(): boolean {
 interface GlassProps extends ComponentProps<"div"> {
   blur?: number;
   chroma?: number;
+  colorScheme?: "light" | "dark";
   depth?: number;
   domeDepth?: number;
   dynamicsRef?: RefObject<GlassDynamics | null>;
@@ -538,6 +539,7 @@ function Glass({
   scaleX = 0.1,
   scaleY = 0.1,
   chroma = 0.2,
+  colorScheme,
   depth = 6,
   domeDepth = 0,
   splay = 1,
@@ -566,7 +568,8 @@ function Glass({
   children,
   ...props
 }: GlassProps) {
-  const dark = useGlassDark();
+  const autoDark = useGlassDark();
+  const dark = colorScheme ? colorScheme === "dark" : autoDark;
   const tintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
   const baseId = useId().replace(/[^a-zA-Z0-9-]/g, "");
   const filterId = `${baseId}-glass`;
@@ -585,6 +588,7 @@ function Glass({
   const decodedUrls = useRef(new Set<string>());
   const pendingUrls = useRef(new Set<string>());
   const version = useRef(0);
+  const warmup = useRef(0);
   const lastScale = useRef(-1);
   const [slotCount, setSlotCount] = useState(1);
   const slotCountRef = useRef(1);
@@ -840,6 +844,7 @@ function Glass({
                 slot.lastHeight = genH;
                 slot.lastRadius = radius;
                 mapChanged = true;
+                warmup.current = 8;
               }
             }
             const tintFade = 1 - 0.85 * tintEff;
@@ -852,7 +857,8 @@ function Glass({
               slot.lastMatrix = matrix;
               rectChanged = true;
             }
-            const fx = Math.round((r.left - base.left) * 2) / 2;
+            const nudge = warmup.current > 0 && warmup.current % 2 === 0 ? 0.5 : 0;
+            const fx = Math.round((r.left - base.left) * 2) / 2 + nudge;
             const fy = Math.round((r.top - base.top) * 2) / 2;
             const bw = base.width || 1;
             const bh = base.height || 1;
@@ -959,6 +965,9 @@ function Glass({
           const id = `${filterId}-v${version.current}`;
           filterRef.current.id = id;
           contentRef.current.style.filter = `url(#${id})`;
+        }
+        if (warmup.current > 0) {
+          warmup.current -= 1;
         }
         raf = requestAnimationFrame(tick);
       };

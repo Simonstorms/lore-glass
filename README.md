@@ -24,6 +24,7 @@ Docs and live demos: run `bun run dev`.
 | Popover | `glass-popover` | The iOS context menu with icon, label, and sublabel rows |
 | Slider | `glass-slider` | Handle lifts into a clear refracting lens while dragging |
 | Switch | `glass-switch` | The iOS toggle with a lens thumb |
+| Tab Bar | `glass-tab-bar` | iOS 26 bottom bar; the active tab lifts into a magnifying glass bubble |
 | Tabs | `glass-tabs` | Selection indicator as a spring-driven glass droplet |
 | Tooltip | `glass-tooltip` | Frosted chip with provider delay grouping |
 

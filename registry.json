@@ -80,6 +80,22 @@
       ]
     },
     {
+      "name": "glass-tab-bar",
+      "type": "registry:ui",
+      "title": "Glass Tab Bar",
+      "description": "An iOS 26 style liquid-glass bottom tab bar. The bar itself is glass and the selected tab is a draggable glass lens built from the same engine: it rests as a soft capsule and swells up out of the bar on press into a magnifying lens that lifts the icon, bends the content behind it, and fringes its edges with chromatic light. Press and drag along the bar and the lens follows, snapping to the nearest tab on release. Every glass property (mode, specular, blur, refraction, translucency, shadow) is tunable via the optional `glass` prop.",
+      "docs": "Import { GlassTabBar } from \"@/components/ui/glass-tab-bar\". It is a bottom-bar scaffold: pass your screen content as children and the bar overlays it at the bottom, refracting that content through both the bar and its lens. Pass `items` as an array of { value, label, icon }; control selection with value / defaultValue / onValueChange. The bar pill, the trailing `accessory` circle (plus onAccessoryClick) such as search, and the selected-tab lens are all real glass markers driven by one shared refraction engine. The active tab rests as a capsule and, on press, swells into a magnifying lens that lifts the icon while the label stays legible; press and drag to move it between tabs and it snaps to the nearest tab on release. Tune the liquid glass material with the optional `glass` prop (a LiquidGlassConfig: mode 'individual'|'combined', specular 'inside'|'outside'|'none', blur, refraction { amount, thickness }, translucency, shadow); DEFAULT_LIQUID_GLASS is exported. Needs room above the bar for the lens to swell.",
+      "registryDependencies": [
+        "https://loreglasses.com/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-tab-bar/glass-tab-bar.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    },
+    {
       "name": "glass-button",
       "type": "registry:ui",
       "title": "Glass Button",
