@@ -72,8 +72,9 @@ function Scene() {
           Grab the selection and drag it
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          The bar is glass and the selected item rests as a pill. Grab it and
-          drag, and it turns into a glass lens that refracts as it slides.
+          The bar is glass and the selected item rests as a pill. Grab that pill
+          and drag, and it turns into a glass lens that magnifies the icons as it
+          slides.
         </div>
       </div>
     </div>
