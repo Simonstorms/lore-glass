@@ -3779,7 +3779,7 @@ export type { GlassDialogContentProps };
 
 # Glass Dock
 
-> A macOS-style liquid-glass application dock: an always-glass bar that refracts the content behind it. The selected item rests as a soft pill; grab that pill and drag along the bar and it becomes a glass lens that magnifies the icons and labels it slides over, snapping to the nearest item (and turning back into a pill) on release. Only the pill is draggable; pressing another item selects it.
+> A macOS-style liquid-glass application dock: an always-glass bar with crisp icons on top. The selected item rests as a soft pill; grab that pill and drag along the bar and it lifts into a glass lens that slides between items, snapping to the nearest one (and settling back into a pill) on release. Only the pill is draggable; pressing another item selects it.
 
 ## Install
 
@@ -3878,8 +3878,7 @@ function Scene() {
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
           The bar is glass and the selected item rests as a pill. Grab that pill
-          and drag, and it turns into a glass lens that magnifies the icons as it
-          slides.
+          and drag, and it lifts into a glass lens that slides along the bar.
         </div>
       </div>
     </div>
@@ -3912,11 +3911,9 @@ export { GlassDockDemo };
 
 import { Glass, isSafariBrowser } from "@/components/ui/glass";
 import {
-  glassEase,
   MotionValue,
   prefersReducedMotion,
-  TRAVEL_DURATION,
-  tween,
+  SpringDriver,
 } from "@/components/ui/glass-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -3951,24 +3948,15 @@ const DEFAULT_LIQUID_GLASS: LiquidGlassConfig = {
 };
 
 interface ResolvedGlass {
-  blur: number;
-  chroma: number;
-  edgeHighlight: number;
-  glow: number;
   scale: number;
   tint: number;
 }
 
 function resolveGlass(config: LiquidGlassConfig): ResolvedGlass {
   const refr = config.refraction.enabled ? config.refraction.amount / 100 : 0;
-  const specOn = config.specular !== "none";
   return {
     scale: refr * 0.5,
-    chroma: config.refraction.enabled ? Math.min(0.5, refr * 1.5) : 0,
-    blur: config.blur.enabled ? (config.blur.value / 100) * 3 : 0,
     tint: config.translucency.enabled ? config.translucency.value / 100 : 0,
-    edgeHighlight: specOn ? 0.3 : 0,
-    glow: specOn ? 0.12 : 0,
   };
 }
 
@@ -3981,27 +3969,20 @@ const COL = (DOCK_W - 2 * PAD_X - 3 * ITEM_GAP) / 4;
 const PILL_W = COL - 8;
 const PILL_H = DOCK_H - 2 * PAD_Y - 10;
 const BAR_RADIUS = 46;
+const POS_SPRING = { stiffness: 90, damping: 18 };
 
 const ACCENT = "#58a6ff";
 const IDLE = "rgba(255,255,255,0.82)";
 const HOVER = "#ffffff";
 const BADGE_BG = "#ff514c";
-const PILL_FILL = "rgba(255,255,255,0.16)";
-const PILL_SHADOW =
-  "inset 0 1px 1px rgba(255,255,255,0.32), 0 6px 16px -10px rgba(0,0,0,0.5)";
+const BAR_BODY = "rgba(18,20,30,0.55)";
+const PILL_GREY = "rgba(255,255,255,0.18)";
 const RIM =
-  "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.18)";
+  "inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 1px 0 rgba(255,255,255,0.2)";
 const SHEEN =
   "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0) 70%)";
-
-const GRID_STYLE = {
-  top: PAD_Y,
-  right: PAD_X,
-  bottom: PAD_Y,
-  left: PAD_X,
-  gridTemplateColumns: "repeat(4, 1fr)",
-  gap: ITEM_GAP,
-} as const;
+const PILL_SHADOW =
+  "inset 0 1px 1px rgba(255,255,255,0.3), 0 6px 16px -10px rgba(0,0,0,0.5)";
 
 function itemCenter(index: number): number {
   return PAD_X + index * (COL + ITEM_GAP) + COL / 2;
@@ -4050,55 +4031,32 @@ function GlassDock({
     0,
     items.findIndex((item) => item.id === active)
   );
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
   const barBoxRef = useRef<HTMLDivElement | null>(null);
-  const barMarkerRef = useRef<HTMLDivElement | null>(null);
   const lensMarkerRef = useRef<HTMLDivElement | null>(null);
 
   const cx = useRef(new MotionValue(itemCenter(activeIndex)));
   const frame = useRef(0);
-  const initialized = useRef(false);
   const pointerDown = useRef(false);
   const dragAllowed = useRef(false);
   const draggingRef = useRef(false);
   const startX = useRef(0);
 
-  const placeStatic = useCallback(() => {
-    const root = rootRef.current;
-    const box = barBoxRef.current;
-    const mark = barMarkerRef.current;
-    if (!(root && box && mark)) {
-      return;
-    }
-    const base = root.getBoundingClientRect();
-    const r = box.getBoundingClientRect();
-    mark.style.left = `${r.left - base.left}px`;
-    mark.style.top = `${r.top - base.top}px`;
-    mark.style.width = `${r.width}px`;
-    mark.style.height = `${r.height}px`;
-    mark.style.borderRadius = `${BAR_RADIUS}px`;
-  }, []);
-
   const apply = useCallback(() => {
     frame.current = 0;
-    placeStatic();
     const lens = lensMarkerRef.current;
-    const root = rootRef.current;
-    const box = barBoxRef.current;
-    if (!(lens && root && box)) {
+    if (!lens) {
       return;
     }
-    const base = root.getBoundingClientRect();
-    const r = box.getBoundingClientRect();
-    lens.style.left = `${r.left - base.left + cx.current.get() - PILL_W / 2}px`;
-    lens.style.top = `${r.top - base.top + (DOCK_H - PILL_H) / 2}px`;
+    lens.style.left = `${cx.current.get() - PILL_W / 2}px`;
+    lens.style.top = `${(DOCK_H - PILL_H) / 2}px`;
     lens.style.width = `${PILL_W}px`;
     lens.style.height = `${PILL_H}px`;
     lens.style.borderRadius = `${PILL_H / 2}px`;
-  }, [placeStatic]);
+  }, []);
 
   const schedule = useCallback(() => {
     if (frame.current === 0) {
@@ -4106,53 +4064,42 @@ function GlassDock({
     }
   }, [apply]);
 
-  const measure = useCallback(() => {
-    const root = rootRef.current;
-    if (!root) {
+  const driver = useRef<SpringDriver | null>(null);
+  if (!driver.current) {
+    driver.current = new SpringDriver(cx.current, POS_SPRING, () =>
+      itemCenter(activeIndexRef.current)
+    );
+  }
+
+  const glide = useCallback(() => {
+    if (prefersReducedMotion()) {
+      cx.current.jump(itemCenter(activeIndexRef.current));
+      apply();
       return;
     }
-    if (!initialized.current) {
-      initialized.current = true;
-      const r = root.getBoundingClientRect();
-      const x = clamp((r.width - DOCK_W) / 2, 0, Math.max(0, r.width - DOCK_W));
-      const y = clamp(
-        r.height * 0.6 - DOCK_H / 2,
-        0,
-        Math.max(0, r.height - DOCK_H)
-      );
-      for (const el of [contentRef.current, overlayRef.current]) {
-        if (el) {
-          el.style.left = `${x}px`;
-          el.style.top = `${y}px`;
-        }
-      }
-    }
+    driver.current?.start();
+  }, [apply]);
+
+  const measure = useCallback(() => {
     apply();
   }, [apply]);
 
   useEffect(() => {
     const off = cx.current.on(schedule);
+    cx.current.jump(itemCenter(activeIndexRef.current));
     measure();
-    const root = rootRef.current;
-    const resize = new ResizeObserver(() => {
-      initialized.current = false;
-      measure();
-    });
-    if (root) {
-      resize.observe(root);
+    const box = barBoxRef.current;
+    const resize = new ResizeObserver(measure);
+    if (box) {
+      resize.observe(box);
     }
     return () => {
       off();
       resize.disconnect();
       cancelAnimationFrame(frame.current);
+      driver.current?.stop();
     };
   }, [measure, schedule]);
-
-  useEffect(() => {
-    if (dragging) {
-      apply();
-    }
-  }, [dragging, apply]);
 
   const select = useCallback(
     (index: number) => {
@@ -4202,7 +4149,7 @@ function GlassDock({
     startX.current = event.clientX;
     dragAllowed.current = nearest(barLocalX(event.clientX)) === activeIndex;
     if (dragAllowed.current) {
-      overlayRef.current?.setPointerCapture(event.pointerId);
+      barBoxRef.current?.setPointerCapture(event.pointerId);
     }
   };
 
@@ -4212,7 +4159,7 @@ function GlassDock({
     }
     if (!draggingRef.current && Math.abs(event.clientX - startX.current) > 4) {
       draggingRef.current = true;
-      cx.current.jump(barLocalX(event.clientX));
+      driver.current?.stop();
       setDragging(true);
     }
     if (!draggingRef.current) {
@@ -4235,53 +4182,10 @@ function GlassDock({
     if (draggingRef.current) {
       draggingRef.current = false;
       setHover(null);
-      const settle = () => setDragging(false);
-      if (prefersReducedMotion()) {
-        settle();
-      } else {
-        tween(cx.current, itemCenter(idx), TRAVEL_DURATION, glassEase, settle);
-      }
+      setDragging(false);
     }
+    glide();
   };
-
-  const iconNodes = items.map((item, index) => {
-    const color =
-      index === activeIndex ? ACCENT : index === hover ? HOVER : IDLE;
-    return (
-      <div
-        className="relative grid place-items-center content-center"
-        key={item.id}
-        style={{ gap: 5, padding: "10px 5px 9px", color }}
-      >
-        <span className="grid size-[28px] place-items-center" style={{ color }}>
-          {item.icon}
-        </span>
-        <span
-          className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-[650] text-[12px] leading-none"
-          style={{ color }}
-        >
-          {item.label}
-        </span>
-        {item.badge == null ? null : (
-          <span
-            className="absolute grid place-items-center text-[10px] text-white"
-            style={{
-              top: 4,
-              right: 5,
-              minWidth: 20,
-              height: 18,
-              padding: "0 5px",
-              borderRadius: 999,
-              background: BADGE_BG,
-              fontWeight: 750,
-            }}
-          >
-            {item.badge}
-          </span>
-        )}
-      </div>
-    );
-  });
 
   return (
     <div
@@ -4289,92 +4193,87 @@ function GlassDock({
       onDragStart={(event) => event.preventDefault()}
       ref={rootRef}
     >
-      <Glass
-        blur={resolved.blur}
-        chroma={resolved.chroma}
-        className="pointer-events-none absolute inset-0"
-        depth={12}
-        domeDepth={12}
-        edgeHighlight={resolved.edgeHighlight}
-        glow={resolved.glow}
-        lens={
-          <>
-            <div
-              className="absolute"
-              data-glass-depth={16}
-              data-glass-lens
-              data-glass-mul={0.55}
-              ref={barMarkerRef}
-            />
-            {dragging ? (
-              <div
-                className="absolute"
-                data-glass-depth={20}
-                data-glass-dome-depth={34}
-                data-glass-edge-highlight={0.22}
-                data-glass-glow={0.1}
-                data-glass-lens
-                data-glass-mul={0.7}
-                ref={lensMarkerRef}
-              />
-            ) : null}
-          </>
-        }
-        resolution={1}
-        scaleX={resolved.scale}
-        scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
-        tint={resolved.tint}
-      >
-        <div className="absolute inset-0 overflow-hidden">
-          {children}
-          <div
-            className="absolute"
-            ref={contentRef}
-            style={{ width: DOCK_W, height: DOCK_H }}
-          >
-            <div className="absolute grid text-white" style={GRID_STYLE}>
-              {iconNodes}
-            </div>
-          </div>
-        </div>
-      </Glass>
+      <div className="absolute inset-0 overflow-hidden">{children}</div>
       <div
         aria-label={ariaLabel}
-        className="absolute touch-none select-none"
+        className="-translate-x-1/2 absolute left-1/2 touch-none select-none"
         onPointerCancel={onPointerUp}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        ref={overlayRef}
-        style={{ width: DOCK_W, height: DOCK_H }}
+        ref={barBoxRef}
+        style={{ top: "60%", width: DOCK_W, height: DOCK_H }}
       >
-        <div className="relative size-full" ref={barBoxRef}>
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ borderRadius: BAR_RADIUS, boxShadow: RIM, background: SHEEN }}
-          />
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              left: itemCenter(activeIndex) - PILL_W / 2,
-              top: (DOCK_H - PILL_H) / 2,
-              width: PILL_W,
-              height: PILL_H,
-              borderRadius: PILL_H / 2,
-              background: PILL_FILL,
-              boxShadow: PILL_SHADOW,
-              opacity: dragging ? 0 : 1,
-              transition:
-                "left 320ms cubic-bezier(0.22,1,0.36,1), opacity 140ms ease",
-            }}
-          />
-          <div className="absolute grid" style={GRID_STYLE}>
-            {items.map((item, index) => (
+        <Glass
+          chroma={0.1}
+          className="pointer-events-none absolute inset-0"
+          depth={3}
+          domeDepth={0}
+          edgeHighlight={0.55}
+          edgeWidth={1}
+          glow={0.4}
+          glowSpread={0.3}
+          lens={
+            <>
+              <div
+                className="absolute inset-0"
+                data-glass-lens
+                style={{ borderRadius: BAR_RADIUS }}
+              />
+              <div className="absolute" data-glass-lens ref={lensMarkerRef}>
+                <div
+                  className="absolute inset-0 rounded-[inherit]"
+                  style={{
+                    background: PILL_GREY,
+                    boxShadow: PILL_SHADOW,
+                    opacity: dragging ? 0 : 1,
+                    transition: "opacity 150ms ease",
+                  }}
+                />
+                <div
+                  className="absolute inset-0 rounded-[inherit]"
+                  style={{
+                    boxShadow:
+                      "inset 0 1px 1px rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.16), 0 8px 18px -10px rgba(0,0,0,0.6)",
+                    background: "rgba(255,255,255,0.08)",
+                    opacity: dragging ? 1 : 0,
+                    transition: "opacity 150ms ease",
+                  }}
+                />
+              </div>
+            </>
+          }
+          reveal
+          scaleX={resolved.scale}
+          scaleY={safari ? resolved.scale * 1.3 : resolved.scale * 0.6}
+          specularStrength={1}
+          tint={resolved.tint}
+        >
+          <div className="absolute inset-0" style={{ background: BAR_BODY }} />
+        </Glass>
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ borderRadius: BAR_RADIUS, boxShadow: RIM, background: SHEEN }}
+        />
+        <div
+          className="absolute grid text-white"
+          style={{
+            top: PAD_Y,
+            right: PAD_X,
+            bottom: PAD_Y,
+            left: PAD_X,
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: ITEM_GAP,
+          }}
+        >
+          {items.map((item, index) => {
+            const color =
+              index === activeIndex ? ACCENT : index === hover ? HOVER : IDLE;
+            return (
               <button
                 aria-current={index === activeIndex ? "page" : undefined}
-                aria-label={item.label}
                 className={cn(
-                  "rounded-[38px] outline-none",
+                  "relative grid place-items-center content-center rounded-[38px] outline-none",
                   index === activeIndex
                     ? "cursor-grab active:cursor-grabbing"
                     : "cursor-pointer"
@@ -4395,10 +4294,41 @@ function GlassDock({
                     setHover((h) => (h === index ? null : h));
                   }
                 }}
+                style={{ gap: 5, padding: "10px 5px 9px", color }}
                 type="button"
-              />
-            ))}
-          </div>
+              >
+                <span
+                  className="grid size-[28px] place-items-center"
+                  style={{ color }}
+                >
+                  {item.icon}
+                </span>
+                <span
+                  className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-[650] text-[12px] leading-none"
+                  style={{ color }}
+                >
+                  {item.label}
+                </span>
+                {item.badge == null ? null : (
+                  <span
+                    className="absolute grid place-items-center text-[10px] text-white"
+                    style={{
+                      top: 4,
+                      right: 5,
+                      minWidth: 20,
+                      height: 18,
+                      padding: "0 5px",
+                      borderRadius: 999,
+                      background: BADGE_BG,
+                      fontWeight: 750,
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
