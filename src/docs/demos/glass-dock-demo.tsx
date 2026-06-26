@@ -56,29 +56,13 @@ const ITEMS = [
 
 function Scene() {
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 overflow-hidden">
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(120% 120% at 18% 8%, #2c2e5e 0%, #181826 52%, #0d0d14 100%)",
+            "radial-gradient(58% 70% at 18% 12%, rgba(244,114,182,0.55), transparent 62%), radial-gradient(55% 68% at 88% 18%, rgba(56,189,248,0.5), transparent 62%), radial-gradient(72% 78% at 52% 112%, rgba(52,211,153,0.5), transparent 60%), radial-gradient(46% 56% at 98% 96%, rgba(251,191,36,0.42), transparent 60%), linear-gradient(158deg, #20223a 0%, #14141f 55%, #0c0c12 100%)",
         }}
-      />
-      <div
-        className="absolute size-[260px] rounded-full blur-[60px]"
-        style={{ top: -40, left: 30, background: "rgba(244,114,182,0.55)" }}
-      />
-      <div
-        className="absolute size-[300px] rounded-full blur-[70px]"
-        style={{ top: 20, right: -50, background: "rgba(56,189,248,0.5)" }}
-      />
-      <div
-        className="absolute size-[280px] rounded-full blur-[70px]"
-        style={{ bottom: -70, left: "38%", background: "rgba(52,211,153,0.45)" }}
-      />
-      <div
-        className="absolute size-[200px] rounded-full blur-[60px]"
-        style={{ bottom: -30, right: 40, background: "rgba(251,191,36,0.4)" }}
       />
       <div className="absolute inset-0 px-7 pt-7">
         <div className="font-semibold text-[13px] text-white/55 uppercase tracking-[0.18em]">
