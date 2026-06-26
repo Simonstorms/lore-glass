@@ -1446,10 +1446,11 @@ function Glass({
             const sw = String(Math.max(0, rectW - 2 * EDGE_BIAS) / bw);
             const sh = String(Math.max(0, rectH - 2 * EDGE_BIAS) / bh);
             if (
-              slot.lastX !== sx ||
-              slot.lastY !== sy ||
-              slot.lastW !== sw ||
-              slot.lastH !== sh
+              slot.feImage &&
+              (slot.lastX !== sx ||
+                slot.lastY !== sy ||
+                slot.lastW !== sw ||
+                slot.lastH !== sh)
             ) {
               for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
                 el?.setAttribute("x", sx);
@@ -4277,12 +4278,9 @@ function GlassDock({
           <>
             <div className="absolute" data-glass-lens ref={barMarkerRef} />
             <div className="absolute" data-glass-lens ref={searchMarkerRef} />
-            <div
-              className="absolute"
-              data-glass-lens
-              ref={indicatorRef}
-              style={{ opacity: moving ? 1 : 0, transition: "opacity 120ms ease" }}
-            />
+            {moving ? (
+              <div className="absolute" data-glass-lens ref={indicatorRef} />
+            ) : null}
           </>
         }
         resolution={2}
@@ -4290,7 +4288,7 @@ function GlassDock({
         scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
         tint={resolved.tint}
       >
-        {children}
+        <div className="absolute inset-0 overflow-hidden">{children}</div>
       </Glass>
       <div
         className={cn(

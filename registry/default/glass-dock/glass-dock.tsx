@@ -350,12 +350,9 @@ function GlassDock({
           <>
             <div className="absolute" data-glass-lens ref={barMarkerRef} />
             <div className="absolute" data-glass-lens ref={searchMarkerRef} />
-            <div
-              className="absolute"
-              data-glass-lens
-              ref={indicatorRef}
-              style={{ opacity: moving ? 1 : 0, transition: "opacity 120ms ease" }}
-            />
+            {moving ? (
+              <div className="absolute" data-glass-lens ref={indicatorRef} />
+            ) : null}
           </>
         }
         resolution={2}
@@ -363,7 +360,7 @@ function GlassDock({
         scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
         tint={resolved.tint}
       >
-        {children}
+        <div className="absolute inset-0 overflow-hidden">{children}</div>
       </Glass>
       <div
         className={cn(

@@ -861,10 +861,11 @@ function Glass({
             const sw = String(Math.max(0, rectW - 2 * EDGE_BIAS) / bw);
             const sh = String(Math.max(0, rectH - 2 * EDGE_BIAS) / bh);
             if (
-              slot.lastX !== sx ||
-              slot.lastY !== sy ||
-              slot.lastW !== sw ||
-              slot.lastH !== sh
+              slot.feImage &&
+              (slot.lastX !== sx ||
+                slot.lastY !== sy ||
+                slot.lastW !== sw ||
+                slot.lastH !== sh)
             ) {
               for (const el of [slot.feImage, slot.feFlood, slot.feMask]) {
                 el?.setAttribute("x", sx);
