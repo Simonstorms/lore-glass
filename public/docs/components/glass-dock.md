@@ -1,6 +1,6 @@
 # Glass Dock
 
-> A macOS-style liquid-glass application dock: a four-item glass bar built from the refraction engine. A glass lens springs under the highlighted item (hovered or selected), refracting the content beneath it, while the icons stay crisp on top. The whole dock can be dragged across the content it refracts.
+> A macOS-style liquid-glass application dock: a four-item glass bar built from the refraction engine. A glass lens springs under the highlighted item, refracting the content beneath it, while the icons stay crisp on top. Hover or tap to move it, or grab the lens and drag it along the bar; it snaps to the nearest item on release.
 
 ## Install
 
@@ -19,7 +19,6 @@ npx shadcn@latest add @lore-glass/glass-dock
 | `items` | `{ id, label, icon, badge? }[]` | `required` | Dock entries. Each has an id, a label, a stroked icon node, and an optional badge. |
 | `value / defaultValue` | `string` | `first item` | Controlled and uncontrolled selected item id. |
 | `onValueChange` | `(id) => void` | `undefined` | Called when the selected item changes. |
-| `draggable` | `boolean` | `false` | Lets the user drag the whole dock across the content behind it. |
 | `glass` | `LiquidGlassConfig` | `DEFAULT_LIQUID_GLASS` | Tunes the material: specular, blur, refraction { amount, thickness }, translucency, shadow. |
 
 ## Usage
@@ -99,8 +98,8 @@ function Scene() {
           Drag the dock across the wallpaper
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Hover or tap an item and the glass lens springs under it, refracting
-          whatever sits behind the bar.
+          Hover or tap an item, or grab the lens and drag it along the bar. It
+          springs under the item and refracts whatever sits behind it.
         </div>
       </div>
     </div>
@@ -113,7 +112,6 @@ function GlassDockDemo() {
       <GlassDock
         className="h-[380px] w-full max-w-[560px] rounded-[28px] text-white"
         defaultValue="home"
-        draggable
         items={ITEMS}
       >
         <Scene />

@@ -72,8 +72,8 @@ function Scene() {
           Drag the dock across the wallpaper
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Hover or tap an item and the glass lens springs under it, refracting
-          whatever sits behind the bar.
+          Hover or tap an item, or grab the lens and drag it along the bar. It
+          springs under the item and refracts whatever sits behind it.
         </div>
       </div>
     </div>
@@ -86,7 +86,6 @@ function GlassDockDemo() {
       <GlassDock
         className="h-[380px] w-full max-w-[560px] rounded-[28px] text-white"
         defaultValue="home"
-        draggable
         items={ITEMS}
       >
         <Scene />
