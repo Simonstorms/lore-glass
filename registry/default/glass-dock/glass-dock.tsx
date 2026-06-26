@@ -74,6 +74,9 @@ const IDLE = "rgba(255,255,255,0.82)";
 const HOVER = "#ffffff";
 const BADGE_BG = "#ff514c";
 const BAR_FILL = "rgba(20,22,32,0.42)";
+const PILL_GREY = "rgba(255,255,255,0.16)";
+const PILL_SHADOW =
+  "inset 0 1px 1px rgba(255,255,255,0.28), 0 6px 16px -10px rgba(0,0,0,0.5)";
 const RIM =
   "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.18)";
 const SHEEN =
@@ -129,6 +132,7 @@ function GlassDock({
 
   const [internal, setInternal] = useState(() => defaultValue ?? items[0]?.id);
   const [hover, setHover] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
   const active = value ?? internal;
   const activeIndex = Math.max(
     0,
@@ -311,6 +315,7 @@ function GlassDock({
     }
     if (!draggingRef.current && Math.abs(event.clientX - startX.current) > 4) {
       draggingRef.current = true;
+      setDragging(true);
     }
     if (!draggingRef.current) {
       return;
@@ -332,6 +337,7 @@ function GlassDock({
     if (draggingRef.current) {
       draggingRef.current = false;
       setHover(null);
+      setDragging(false);
     }
     glide();
   };
@@ -398,8 +404,9 @@ function GlassDock({
             />
             <div
               className="absolute"
-              data-glass-dome-depth={22}
+              data-glass-dome-depth={16}
               data-glass-lens
+              data-glass-mul={dragging ? 0.5 : 0}
               ref={lensMarkerRef}
             />
           </>
@@ -420,7 +427,14 @@ function GlassDock({
               className="absolute inset-0"
               style={{ borderRadius: BAR_RADIUS, background: BAR_FILL }}
             />
-            <div className="absolute grid text-white" style={GRID_STYLE}>
+            <div
+              className="absolute grid text-white"
+              style={{
+                ...GRID_STYLE,
+                opacity: dragging ? 1 : 0,
+                transition: "opacity 150ms ease",
+              }}
+            >
               {iconNodes}
             </div>
           </div>
@@ -441,7 +455,22 @@ function GlassDock({
             className="pointer-events-none absolute inset-0"
             style={{ borderRadius: BAR_RADIUS, boxShadow: RIM, background: SHEEN }}
           />
-          <div className="absolute grid size-full" style={GRID_STYLE}>
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: itemCenter(activeIndex) - LENS_W / 2,
+              top: (DOCK_H - LENS_H) / 2,
+              width: LENS_W,
+              height: LENS_H,
+              borderRadius: LENS_H / 2,
+              background: PILL_GREY,
+              boxShadow: PILL_SHADOW,
+              opacity: dragging ? 0 : 1,
+              transition:
+                "left 320ms cubic-bezier(0.22,1,0.36,1), opacity 150ms ease",
+            }}
+          />
+          <div className="absolute grid" style={GRID_STYLE}>
             {items.map((item, index) => (
               <button
                 aria-current={index === activeIndex ? "page" : undefined}
@@ -471,6 +500,16 @@ function GlassDock({
                 type="button"
               />
             ))}
+          </div>
+          <div
+            className="pointer-events-none absolute grid text-white"
+            style={{
+              ...GRID_STYLE,
+              opacity: dragging ? 0 : 1,
+              transition: "opacity 150ms ease",
+            }}
+          >
+            {iconNodes}
           </div>
         </div>
       </div>
