@@ -1,6 +1,6 @@
 # Glass Dock
 
-> A macOS-style liquid-glass application dock: a four-item glass bar with a trailing search orb, both built from the refraction engine. The selected item rests as a soft pill and the selection glides between items as a glass lens. The whole dock can be dragged across the content it refracts.
+> A macOS-style liquid-glass application dock: a four-item glass bar built from the refraction engine. A glass lens springs under the highlighted item (hovered or selected), refracting the content beneath it, while the icons stay crisp on top. The whole dock can be dragged across the content it refracts.
 
 ## Install
 
@@ -19,7 +19,6 @@ npx shadcn@latest add @lore-glass/glass-dock
 | `items` | `{ id, label, icon, badge? }[]` | `required` | Dock entries. Each has an id, a label, a stroked icon node, and an optional badge. |
 | `value / defaultValue` | `string` | `first item` | Controlled and uncontrolled selected item id. |
 | `onValueChange` | `(id) => void` | `undefined` | Called when the selected item changes. |
-| `onSearch` | `() => void` | `undefined` | Called when the trailing search orb is pressed. |
 | `draggable` | `boolean` | `false` | Lets the user drag the whole dock across the content behind it. |
 | `glass` | `LiquidGlassConfig` | `DEFAULT_LIQUID_GLASS` | Tunes the material: specular, blur, refraction { amount, thickness }, translucency, shadow. |
 
@@ -100,8 +99,8 @@ function Scene() {
           Drag the dock across the wallpaper
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Tap an item and the selection glides as a glass lens. The bar and the
-          search orb refract whatever sits behind them.
+          Hover or tap an item and the glass lens springs under it, refracting
+          whatever sits behind the bar.
         </div>
       </div>
     </div>

@@ -2,11 +2,9 @@
 
 import { Glass, isSafariBrowser } from "@/components/ui/glass";
 import {
-  glassEase,
   MotionValue,
   prefersReducedMotion,
-  TRAVEL_DURATION,
-  tween,
+  SpringDriver,
 } from "@/components/ui/glass-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -66,28 +64,28 @@ function resolveGlass(config: LiquidGlassConfig): ResolvedGlass {
   };
 }
 
-const DOCK_W = 532;
+const DOCK_W = 428;
 const DOCK_H = 100;
-const BAR_W = 428;
-const SEARCH = 92;
-const GAP = 12;
 const PAD_X = 10;
 const PAD_Y = 9;
 const ITEM_GAP = 4;
-const COL = (BAR_W - 2 * PAD_X - 3 * ITEM_GAP) / 4;
-const IND_W = COL - 8;
-const IND_H = DOCK_H - 2 * PAD_Y - 10;
+const COL = (DOCK_W - 2 * PAD_X - 3 * ITEM_GAP) / 4;
+const LENS_W = COL - 8;
+const LENS_H = DOCK_H - 2 * PAD_Y - 10;
 const BAR_RADIUS = 46;
+const POS_SPRING = { stiffness: 70, damping: 16 };
 
 const ACCENT = "#58a6ff";
 const IDLE = "rgba(255,255,255,0.82)";
 const HOVER = "#ffffff";
-const PILL_SELECTED = "rgba(255,255,255,0.16)";
-const PILL_HOVER = "rgba(255,255,255,0.08)";
 const BADGE_BG = "#ff514c";
-const RIM = "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.18)";
+const RIM =
+  "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.18)";
 const SHEEN =
   "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0) 70%)";
+const PILL_FILL = "rgba(255,255,255,0.12)";
+const PILL_SHADOW =
+  "inset 0 1px 1px rgba(255,255,255,0.3), 0 8px 18px -10px rgba(0,0,0,0.5)";
 
 function itemCenter(index: number): number {
   return PAD_X + index * (COL + ITEM_GAP) + COL / 2;
@@ -95,25 +93,6 @@ function itemCenter(index: number): number {
 
 function clamp(value: number, lo: number, hi: number): number {
   return value < lo ? lo : value > hi ? hi : value;
-}
-
-function SearchGlyph() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height={28}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      width={28}
-    >
-      <circle cx="10.5" cy="10.5" r="6.5" />
-      <path d="m16 16 5 5" />
-    </svg>
-  );
 }
 
 interface GlassDockItem {
@@ -131,10 +110,7 @@ interface GlassDockProps {
   draggable?: boolean;
   glass?: LiquidGlassConfig;
   items: GlassDockItem[];
-  onSearch?: () => void;
   onValueChange?: (id: string) => void;
-  searchIcon?: ReactNode;
-  searchLabel?: string;
   value?: string;
 }
 
@@ -146,10 +122,7 @@ function GlassDock({
   draggable = false,
   glass,
   items,
-  onSearch,
   onValueChange,
-  searchIcon,
-  searchLabel = "Search",
   value,
 }: GlassDockProps) {
   const safari = isSafariBrowser();
@@ -157,72 +130,92 @@ function GlassDock({
 
   const [internal, setInternal] = useState(() => defaultValue ?? items[0]?.id);
   const [hover, setHover] = useState<number | null>(null);
-  const [moving, setMoving] = useState(false);
   const active = value ?? internal;
   const activeIndex = Math.max(
     0,
     items.findIndex((item) => item.id === active)
   );
+  const highlight = hover ?? activeIndex;
+  const highlightRef = useRef(highlight);
+  highlightRef.current = highlight;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dockRef = useRef<HTMLDivElement | null>(null);
   const barBoxRef = useRef<HTMLElement | null>(null);
-  const searchBoxRef = useRef<HTMLButtonElement | null>(null);
   const barMarkerRef = useRef<HTMLDivElement | null>(null);
-  const searchMarkerRef = useRef<HTMLDivElement | null>(null);
-  const indicatorRef = useRef<HTMLDivElement | null>(null);
+  const lensMarkerRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLDivElement | null>(null);
 
-  const cx = useRef(new MotionValue(itemCenter(activeIndex)));
+  const cx = useRef(new MotionValue(itemCenter(highlight)));
   const dockPos = useRef({ x: 0, y: 0 });
   const frame = useRef(0);
   const initialized = useRef(false);
   const dragged = useRef(false);
-  const activeIndexRef = useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
 
   const placeStatic = useCallback(() => {
     const root = rootRef.current;
-    if (!root) {
+    const box = barBoxRef.current;
+    const mark = barMarkerRef.current;
+    if (!(root && box && mark)) {
       return;
     }
     const base = root.getBoundingClientRect();
-    const place = (box: HTMLElement | null, mark: HTMLDivElement | null, radius: number) => {
-      if (!(box && mark)) {
-        return;
-      }
-      const r = box.getBoundingClientRect();
-      mark.style.left = `${r.left - base.left}px`;
-      mark.style.top = `${r.top - base.top}px`;
-      mark.style.width = `${r.width}px`;
-      mark.style.height = `${r.height}px`;
-      mark.style.borderRadius = `${radius}px`;
-    };
-    place(barBoxRef.current, barMarkerRef.current, BAR_RADIUS);
-    place(searchBoxRef.current, searchMarkerRef.current, SEARCH / 2);
+    const r = box.getBoundingClientRect();
+    mark.style.left = `${r.left - base.left}px`;
+    mark.style.top = `${r.top - base.top}px`;
+    mark.style.width = `${r.width}px`;
+    mark.style.height = `${r.height}px`;
+    mark.style.borderRadius = `${BAR_RADIUS}px`;
   }, []);
 
   const apply = useCallback(() => {
     frame.current = 0;
     placeStatic();
-    const ind = indicatorRef.current;
     const root = rootRef.current;
-    const bar = barBoxRef.current;
-    if (!(ind && root && bar)) {
+    const box = barBoxRef.current;
+    if (!(root && box)) {
       return;
     }
     const base = root.getBoundingClientRect();
-    const br = bar.getBoundingClientRect();
-    ind.style.left = `${br.left - base.left + cx.current.get() - IND_W / 2}px`;
-    ind.style.top = `${br.top - base.top + (DOCK_H - IND_H) / 2}px`;
-    ind.style.width = `${IND_W}px`;
-    ind.style.height = `${IND_H}px`;
-    ind.style.borderRadius = `${IND_H / 2}px`;
+    const r = box.getBoundingClientRect();
+    const x = cx.current.get();
+    const localLeft = x - LENS_W / 2;
+    const localTop = (DOCK_H - LENS_H) / 2;
+    const lens = lensMarkerRef.current;
+    if (lens) {
+      lens.style.left = `${r.left - base.left + localLeft}px`;
+      lens.style.top = `${r.top - base.top + localTop}px`;
+      lens.style.width = `${LENS_W}px`;
+      lens.style.height = `${LENS_H}px`;
+      lens.style.borderRadius = `${LENS_H / 2}px`;
+    }
+    const pill = pillRef.current;
+    if (pill) {
+      pill.style.left = `${localLeft}px`;
+      pill.style.top = `${localTop}px`;
+    }
   }, [placeStatic]);
 
   const schedule = useCallback(() => {
     if (frame.current === 0) {
       frame.current = requestAnimationFrame(apply);
     }
+  }, [apply]);
+
+  const driver = useRef<SpringDriver | null>(null);
+  if (!driver.current) {
+    driver.current = new SpringDriver(cx.current, POS_SPRING, () =>
+      itemCenter(highlightRef.current)
+    );
+  }
+
+  const glide = useCallback(() => {
+    if (prefersReducedMotion()) {
+      cx.current.jump(itemCenter(highlightRef.current));
+      apply();
+      return;
+    }
+    driver.current?.start();
   }, [apply]);
 
   const measure = useCallback(() => {
@@ -235,11 +228,15 @@ function GlassDock({
       initialized.current = true;
       const r = root.getBoundingClientRect();
       const x = clamp((r.width - DOCK_W) / 2, 0, Math.max(0, r.width - DOCK_W));
-      const y = clamp(r.height * 0.62 - DOCK_H / 2, 0, Math.max(0, r.height - DOCK_H));
+      const y = clamp(
+        r.height * 0.62 - DOCK_H / 2,
+        0,
+        Math.max(0, r.height - DOCK_H)
+      );
       dockPos.current = { x, y };
       dock.style.left = `${x}px`;
       dock.style.top = `${y}px`;
-      cx.current.jump(itemCenter(activeIndexRef.current));
+      cx.current.jump(itemCenter(highlightRef.current));
     }
     apply();
   }, [apply]);
@@ -259,6 +256,7 @@ function GlassDock({
       off();
       resize.disconnect();
       cancelAnimationFrame(frame.current);
+      driver.current?.stop();
     };
   }, [measure, schedule]);
 
@@ -272,20 +270,17 @@ function GlassDock({
         setInternal(item.id);
       }
       onValueChange?.(item.id);
-      const reduced = prefersReducedMotion();
-      if (!reduced) {
-        setMoving(true);
-      }
-      tween(
-        cx.current,
-        itemCenter(index),
-        reduced ? 0 : TRAVEL_DURATION,
-        glassEase,
-        () => setMoving(false)
-      );
     },
     [items, onValueChange, value]
   );
+
+  const onItemClick = (index: number) => {
+    if (dragged.current) {
+      dragged.current = false;
+      return;
+    }
+    select(index);
+  };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!draggable) {
@@ -328,14 +323,6 @@ function GlassDock({
     window.addEventListener("pointercancel", up);
   };
 
-  const onItemClick = (index: number) => {
-    if (dragged.current) {
-      dragged.current = false;
-      return;
-    }
-    select(index);
-  };
-
   return (
     <div className={cn("relative overflow-hidden", className)} ref={rootRef}>
       <Glass
@@ -349,10 +336,7 @@ function GlassDock({
         lens={
           <>
             <div className="absolute" data-glass-lens ref={barMarkerRef} />
-            <div className="absolute" data-glass-lens ref={searchMarkerRef} />
-            {moving ? (
-              <div className="absolute" data-glass-lens ref={indicatorRef} />
-            ) : null}
+            <div className="absolute" data-glass-lens ref={lensMarkerRef} />
           </>
         }
         resolution={2}
@@ -364,22 +348,32 @@ function GlassDock({
       </Glass>
       <div
         className={cn(
-          "absolute flex items-center text-white",
+          "absolute text-white",
           draggable && "cursor-grab touch-none select-none active:cursor-grabbing"
         )}
         onPointerDown={onPointerDown}
         ref={dockRef}
-        style={{ width: DOCK_W, height: DOCK_H, gap: GAP }}
+        style={{ width: DOCK_W, height: DOCK_H }}
       >
         <nav
           aria-label={ariaLabel}
-          className="relative"
+          className="relative size-full"
           ref={barBoxRef}
-          style={{ width: BAR_W, height: DOCK_H }}
         >
           <div
             className="pointer-events-none absolute inset-0"
             style={{ borderRadius: BAR_RADIUS, boxShadow: RIM, background: SHEEN }}
+          />
+          <div
+            className="pointer-events-none absolute"
+            ref={pillRef}
+            style={{
+              width: LENS_W,
+              height: LENS_H,
+              borderRadius: LENS_H / 2,
+              background: PILL_FILL,
+              boxShadow: PILL_SHADOW,
+            }}
           />
           <div
             className="absolute grid"
@@ -393,43 +387,35 @@ function GlassDock({
             }}
           >
             {items.map((item, index) => {
-              const selected = index === activeIndex;
-              const hovered = index === hover;
-              const color = selected ? ACCENT : hovered ? HOVER : IDLE;
-              const pillVisible = selected ? !moving : hovered;
-              const inset = selected ? 4 : 5;
-              const insetY = selected ? 5 : 7;
+              const color =
+                index === activeIndex
+                  ? ACCENT
+                  : index === hover
+                    ? HOVER
+                    : IDLE;
               return (
                 <button
-                  aria-current={selected ? "page" : undefined}
+                  aria-current={index === activeIndex ? "page" : undefined}
                   className="relative grid cursor-pointer place-items-center content-center outline-none"
                   key={item.id}
                   onClick={() => onItemClick(index)}
-                  onPointerEnter={() => setHover(index)}
-                  onPointerLeave={() => setHover((h) => (h === index ? null : h))}
+                  onPointerEnter={() => {
+                    setHover(index);
+                    glide();
+                  }}
+                  onPointerLeave={() => {
+                    setHover((h) => (h === index ? null : h));
+                    glide();
+                  }}
                   style={{
                     gap: 5,
                     padding: "10px 5px 9px",
                     borderRadius: 38,
                     color,
-                    transition: "color 100ms ease",
+                    transition: "color 120ms ease",
                   }}
                   type="button"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="absolute"
-                    style={{
-                      top: insetY,
-                      right: inset,
-                      bottom: insetY,
-                      left: inset,
-                      borderRadius: 999,
-                      background: selected ? PILL_SELECTED : PILL_HOVER,
-                      opacity: pillVisible ? 1 : 0,
-                      transition: "opacity 140ms ease",
-                    }}
-                  />
                   <span
                     className="relative grid size-[28px] place-items-center"
                     style={{ color }}
@@ -464,22 +450,6 @@ function GlassDock({
             })}
           </div>
         </nav>
-        <button
-          aria-label={searchLabel}
-          className="relative grid shrink-0 cursor-pointer place-items-center text-white outline-none"
-          onClick={() => onSearch?.()}
-          ref={searchBoxRef}
-          style={{ width: SEARCH, height: SEARCH, borderRadius: "50%" }}
-          type="button"
-        >
-          <span
-            className="pointer-events-none absolute inset-0 rounded-full"
-            style={{ boxShadow: RIM, background: SHEEN }}
-          />
-          <span className="relative grid place-items-center">
-            {searchIcon ?? <SearchGlyph />}
-          </span>
-        </button>
       </div>
     </div>
   );

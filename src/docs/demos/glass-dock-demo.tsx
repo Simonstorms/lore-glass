@@ -72,8 +72,8 @@ function Scene() {
           Drag the dock across the wallpaper
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Tap an item and the selection glides as a glass lens. The bar and the
-          search orb refract whatever sits behind them.
+          Hover or tap an item and the glass lens springs under it, refracting
+          whatever sits behind the bar.
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ const glassDockDoc: ComponentDoc = {
   slug: "glass-dock",
   title: "Dock",
   description:
-    "A macOS-style liquid-glass application dock: a four-item glass bar with a trailing search orb, both built from the refraction engine. The selected item rests as a soft pill and the selection glides between items as a glass lens. The whole dock can be dragged across the content it refracts.",
+    "A macOS-style liquid-glass application dock: a four-item glass bar built from the refraction engine. A glass lens springs under the highlighted item (hovered or selected), refracting the content beneath it, while the icons stay crisp on top. The whole dock can be dragged across the content it refracts.",
   registryName: "glass-dock",
   demo: GlassDockDemo,
   demoSource: glassDockDemoSource,
@@ -32,12 +32,6 @@ const glassDockDoc: ComponentDoc = {
           type: "(id) => void",
           defaultValue: "undefined",
           description: "Called when the selected item changes.",
-        },
-        {
-          name: "onSearch",
-          type: "() => void",
-          defaultValue: "undefined",
-          description: "Called when the trailing search orb is pressed.",
         },
         {
           name: "draggable",
