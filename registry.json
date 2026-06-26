@@ -170,6 +170,22 @@
           "type": "registry:ui"
         }
       ]
+    },
+    {
+      "name": "glass-dock",
+      "type": "registry:ui",
+      "title": "Glass Dock",
+      "description": "A macOS-style liquid-glass application dock built on the refraction engine: a four-item glass bar with a trailing search orb. The selected item rests as a soft pill and the selection glides between items as a glass lens that bends the content behind it. The whole dock can be dragged across the content it refracts.",
+      "docs": "Import { GlassDock } from \"@/components/ui/glass-dock\". It is a scaffold: pass your screen content as children and the dock overlays it, refracting that content through the bar, the trailing search orb, and the moving selection lens. Pass `items` as an array of { id, label, icon, badge? }; control selection with value / defaultValue / onValueChange and handle the orb with onSearch. Set `draggable` to let the user drag the whole dock across the content behind it. Tune the material with the optional `glass` prop (a LiquidGlassConfig: mode, specular, blur, refraction { amount, thickness }, translucency, shadow); DEFAULT_LIQUID_GLASS is exported.",
+      "registryDependencies": [
+        "https://loreglasses.com/r/glass.json"
+      ],
+      "files": [
+        {
+          "path": "registry/default/glass-dock/glass-dock.tsx",
+          "type": "registry:ui"
+        }
+      ]
     }
   ]
 }

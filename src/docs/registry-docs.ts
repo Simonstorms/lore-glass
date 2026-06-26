@@ -1,6 +1,7 @@
 import { glassDoc } from "@/docs/components/glass";
 import { glassButtonDoc } from "@/docs/components/glass-button";
 import { glassDialogDoc } from "@/docs/components/glass-dialog";
+import { glassDockDoc } from "@/docs/components/glass-dock";
 import { glassInputDoc } from "@/docs/components/glass-input";
 import { glassPopoverDoc } from "@/docs/components/glass-popover";
 import { glassSliderDoc } from "@/docs/components/glass-slider";
@@ -13,6 +14,7 @@ const DOCS: ComponentDoc[] = [
   glassDoc,
   glassButtonDoc,
   glassDialogDoc,
+  glassDockDoc,
   glassInputDoc,
   glassPopoverDoc,
   glassSliderDoc,

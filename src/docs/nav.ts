@@ -23,6 +23,7 @@ const NAV: NavGroup[] = [
       { title: "Glass", to: "/docs/components/glass" },
       { title: "Button", to: "/docs/components/glass-button" },
       { title: "Dialog", to: "/docs/components/glass-dialog" },
+      { title: "Dock", to: "/docs/components/glass-dock" },
       { title: "Input", to: "/docs/components/glass-input" },
       { title: "Popover", to: "/docs/components/glass-popover" },
       { title: "Slider", to: "/docs/components/glass-slider" },
