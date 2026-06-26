@@ -1,6 +1,6 @@
 # Glass Dock
 
-> A macOS-style liquid-glass application dock: a four-item glass bar built from the refraction engine. A glass lens springs under the highlighted item, refracting the content beneath it, while the icons stay crisp on top. Hover or tap to move it, or grab the lens and drag it along the bar; it snaps to the nearest item on release.
+> A macOS-style liquid-glass application dock: a four-item bar with a glass lens that springs under the selected item and magnifies its icon and label through the refraction engine. Tap an item or grab the lens and drag it along the bar; it snaps to the nearest item on release. The other items stay crisp until the lens passes over them.
 
 ## Install
 
@@ -87,7 +87,7 @@ function Scene() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(58% 70% at 18% 12%, rgba(244,114,182,0.55), transparent 62%), radial-gradient(55% 68% at 88% 18%, rgba(56,189,248,0.5), transparent 62%), radial-gradient(72% 78% at 52% 112%, rgba(52,211,153,0.5), transparent 60%), radial-gradient(46% 56% at 98% 96%, rgba(251,191,36,0.42), transparent 60%), linear-gradient(158deg, #20223a 0%, #14141f 55%, #0c0c12 100%)",
+            "radial-gradient(circle 140px at 14% 24%, #ff5fa2 0%, #ff5fa2 26%, transparent 60%), radial-gradient(circle 150px at 86% 30%, #2bb6ff 0%, #2bb6ff 24%, transparent 58%), radial-gradient(circle 170px at 44% 96%, #18d0a0 0%, #18d0a0 26%, transparent 60%), radial-gradient(circle 120px at 92% 86%, #ffb02e 0%, #ffb02e 26%, transparent 58%), radial-gradient(circle 120px at 58% 62%, #7c4dff 0%, #7c4dff 22%, transparent 56%), linear-gradient(150deg, #2a1a44 0%, #161427 55%, #100f1c 100%)",
         }}
       />
       <div className="absolute inset-0 px-7 pt-7">
@@ -95,11 +95,11 @@ function Scene() {
           Liquid Glass
         </div>
         <div className="mt-2 max-w-[320px] font-semibold text-[26px] text-white leading-tight">
-          Drag the dock across the wallpaper
+          Drag the glass lens along the bar
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Hover or tap an item, or grab the lens and drag it along the bar. It
-          springs under the item and refracts whatever sits behind it.
+          Tap an item or grab the lens and drag it. It springs under the item
+          and magnifies the icon and label through the glass.
         </div>
       </div>
     </div>
