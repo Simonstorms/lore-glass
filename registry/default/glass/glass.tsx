@@ -1250,36 +1250,20 @@ function Glass({
                   />
                 </>
               ))}
-            {renderSlots.map((i) =>
-              reveal ? (
-                <feImage
-                  height="0.001"
-                  key={`mask-${i}`}
-                  preserveAspectRatio="none"
-                  ref={(el) => {
-                    slotsRef.current[i].feMask = el;
-                  }}
-                  result={`mask${i}`}
-                  width="0.001"
-                  x="0"
-                  y="0"
-                />
-              ) : (
-                <feFlood
-                  floodColor="black"
-                  floodOpacity="1"
-                  height="0.001"
-                  key={`mask-${i}`}
-                  ref={(el) => {
-                    slotsRef.current[i].feFlood = el;
-                  }}
-                  result={`mask${i}`}
-                  width="0.001"
-                  x="0"
-                  y="0"
-                />
-              )
-            )}
+            {renderSlots.map((i) => (
+              <feImage
+                height="0.001"
+                key={`mask-${i}`}
+                preserveAspectRatio="none"
+                ref={(el) => {
+                  slotsRef.current[i].feMask = el;
+                }}
+                result={`mask${i}`}
+                width="0.001"
+                x="0"
+                y="0"
+              />
+            ))}
             <feMerge result="unionMask">
               {renderSlots.map((i) => (
                 <feMergeNode in={`mask${i}`} key={`mn-${i}`} />

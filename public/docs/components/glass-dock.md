@@ -1,6 +1,6 @@
 # Glass Dock
 
-> A macOS-style liquid-glass application dock: an always-glass bar with crisp icons on top. The selected item rests as a soft pill; grab that pill and drag along the bar and it lifts into a glass lens that slides between items, snapping to the nearest one (and settling back into a pill) on release. Only the pill is draggable; pressing another item selects it.
+> A macOS-style liquid-glass application dock: an always-glass bar that refracts the content behind it, with the selected item magnified through a glass lens. Grab that lens and drag it along the bar and it refracts and magnifies each icon and label it slides over, snapping to the nearest item on release. Only the selected lens is draggable; pressing another item selects it.
 
 ## Install
 
@@ -95,11 +95,11 @@ function Scene() {
           Liquid Glass
         </div>
         <div className="mt-2 max-w-[320px] font-semibold text-[26px] text-white leading-tight">
-          Grab the selection and drag it
+          Drag the glass lens
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          The bar is glass and the selected item rests as a pill. Grab that pill
-          and drag, and it lifts into a glass lens that slides along the bar.
+          The bar is glass and the selected item is magnified through a lens.
+          Grab it and drag, and the lens refracts each icon it slides over.
         </div>
       </div>
     </div>
