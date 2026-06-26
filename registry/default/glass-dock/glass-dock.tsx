@@ -147,6 +147,7 @@ function GlassDock({
   const barBoxRef = useRef<HTMLDivElement | null>(null);
   const barMarkerRef = useRef<HTMLDivElement | null>(null);
   const lensMarkerRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLDivElement | null>(null);
 
   const cx = useRef(new MotionValue(itemCenter(activeIndex)));
   const frame = useRef(0);
@@ -183,11 +184,18 @@ function GlassDock({
     }
     const base = root.getBoundingClientRect();
     const r = box.getBoundingClientRect();
-    lens.style.left = `${r.left - base.left + cx.current.get() - LENS_W / 2}px`;
-    lens.style.top = `${r.top - base.top + (DOCK_H - LENS_H) / 2}px`;
+    const localLeft = cx.current.get() - LENS_W / 2;
+    const localTop = (DOCK_H - LENS_H) / 2;
+    lens.style.left = `${r.left - base.left + localLeft}px`;
+    lens.style.top = `${r.top - base.top + localTop}px`;
     lens.style.width = `${LENS_W}px`;
     lens.style.height = `${LENS_H}px`;
     lens.style.borderRadius = `${LENS_H / 2}px`;
+    const pill = pillRef.current;
+    if (pill) {
+      pill.style.left = `${localLeft}px`;
+      pill.style.top = `${localTop}px`;
+    }
   }, [placeStatic]);
 
   const schedule = useCallback(() => {
@@ -457,17 +465,15 @@ function GlassDock({
           />
           <div
             className="pointer-events-none absolute"
+            ref={pillRef}
             style={{
-              left: itemCenter(activeIndex) - LENS_W / 2,
-              top: (DOCK_H - LENS_H) / 2,
               width: LENS_W,
               height: LENS_H,
               borderRadius: LENS_H / 2,
               background: PILL_GREY,
               boxShadow: PILL_SHADOW,
               opacity: dragging ? 0 : 1,
-              transition:
-                "left 320ms cubic-bezier(0.22,1,0.36,1), opacity 150ms ease",
+              transition: "opacity 150ms ease",
             }}
           />
           <div className="absolute grid" style={GRID_STYLE}>
