@@ -6,7 +6,7 @@ const glassDockDoc: ComponentDoc = {
   slug: "glass-dock",
   title: "Dock",
   description:
-    "A macOS-style liquid-glass application dock: a four-item bar with a glass lens that springs under the selected item and magnifies its icon and label through the refraction engine. Tap an item or grab the lens and drag it along the bar; it snaps to the nearest item on release. The other items stay crisp until the lens passes over them.",
+    "A macOS-style liquid-glass application dock: an always-glass bar that refracts the content behind it, with crisp icons on top. The selected item rests as a soft pill; grab it and drag along the bar and it becomes a glass lens that refracts the backdrop as it slides, snapping to the nearest item (and turning back into a pill) on release.",
   registryName: "glass-dock",
   demo: GlassDockDemo,
   demoSource: glassDockDemoSource,

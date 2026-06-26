@@ -69,11 +69,11 @@ function Scene() {
           Liquid Glass
         </div>
         <div className="mt-2 max-w-[320px] font-semibold text-[26px] text-white leading-tight">
-          Drag the glass lens along the bar
+          Grab the selection and drag it
         </div>
         <div className="mt-3 max-w-[300px] text-[14px] text-white/60">
-          Tap an item or grab the lens and drag it. It springs under the item
-          and magnifies the icon and label through the glass.
+          The bar is glass and the selected item rests as a pill. Grab it and
+          drag, and it turns into a glass lens that refracts as it slides.
         </div>
       </div>
     </div>
