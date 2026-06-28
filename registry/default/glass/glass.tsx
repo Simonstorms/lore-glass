@@ -39,6 +39,7 @@ interface MapParams {
   specularAngle: number;
   sdfBoundary?: boolean;
   edgeFalloff?: boolean;
+  alphaBlend?: boolean;
 }
 
 interface GlassDynamics {
@@ -125,6 +126,8 @@ function generateLensMap(p: MapParams): string | null {
   const spreadRange = p.glowSpread * Math.SQRT2;
   const spreadInv = spreadRange > 0.001 ? 1 / spreadRange : 0;
   const edgeWInv = p.edgeWidth > 0 ? 1 / p.edgeWidth : 0;
+  const alphaBlend = p.alphaBlend ?? false;
+  const alphaInv = alphaBlend && p.depth > 0 ? 1 / p.depth : 0;
   const stepX = (2 * p.halfW) / size;
   const stepY = (2 * p.halfH) / size;
   const invW = 1 / p.halfW;
@@ -169,11 +172,12 @@ function generateLensMap(p: MapParams): string | null {
       const i01 = (mr * size + col) * 4;
       const i11 = (mr * size + mc) * 4;
       if (sdfBoundary && sd >= 0) {
+        const edgeAlpha = alphaBlend ? 0 : 255;
         for (const i of [i00, i10, i01, i11]) {
           data[i] = 128;
           data[i + 1] = 128;
           data[i + 2] = 128;
-          data[i + 3] = 255;
+          data[i + 3] = edgeAlpha;
         }
         continue;
       }
@@ -247,22 +251,23 @@ function generateLensMap(p: MapParams): string | null {
         b1 = (127 * s1 + 128 + 0.5) | 0;
         b2 = (127 * s2 + 128 + 0.5) | 0;
       }
+      const aIn = alphaBlend ? ((clamp01(-sd * alphaInv) * 255 + 0.5) | 0) : 255;
       data[i00] = rPos;
       data[i00 + 1] = gPos;
       data[i00 + 2] = b1;
-      data[i00 + 3] = 255;
+      data[i00 + 3] = aIn;
       data[i10] = rNeg;
       data[i10 + 1] = gPos;
       data[i10 + 2] = b2;
-      data[i10 + 3] = 255;
+      data[i10 + 3] = aIn;
       data[i01] = rPos;
       data[i01 + 1] = gNeg;
       data[i01 + 2] = b2;
-      data[i01 + 3] = 255;
+      data[i01 + 3] = aIn;
       data[i11] = rNeg;
       data[i11 + 1] = gNeg;
       data[i11 + 2] = b1;
-      data[i11 + 3] = 255;
+      data[i11 + 3] = aIn;
     }
   }
   ctx.putImageData(image, 0, 0);
@@ -530,8 +535,8 @@ function markOverrides(
   return out;
 }
 
-function axisMatrix(kx: number, ky: number): string {
-  return `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 1 0`;
+function axisMatrix(kx: number, ky: number, alpha = 1): string {
+  return `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 ${alpha} 0`;
 }
 
 function Glass({
@@ -774,6 +779,7 @@ function Glass({
             hasLens = true;
             activeCount += 1;
             const ov = markOverrides(mark);
+            const blend = mark.dataset.glassBlend === "1";
             const tintRaw = mark.dataset.glassTint;
             const tintNum = tintRaw === undefined ? Number.NaN : Number(tintRaw);
             const lensTint = Number.isNaN(tintNum) ? p.tint : clamp01(tintNum);
@@ -813,7 +819,7 @@ function Glass({
             const glowExpV = ov.glowExponent ?? p.glowExponent;
             const edgeV = ov.edgeHighlight ?? p.edgeHighlight;
             const edgeExpV = ov.edgeExponent ?? p.edgeExponent;
-            const key = `${genW}x${genH}r${radius}d${effDepth}o${effDome}p${splayV}a${angleV}g${glowV},${glowSpreadV},${glowExpV}e${edgeV},${effEdgeW},${edgeExpV}m${p.mapSize}f${p.sdfBoundary ? 1 : 0}${p.edgeFalloff ? 1 : 0}`;
+            const key = `${genW}x${genH}r${radius}d${effDepth}o${effDome}p${splayV}a${angleV}g${glowV},${glowSpreadV},${glowExpV}e${edgeV},${effEdgeW},${edgeExpV}m${p.mapSize}f${p.sdfBoundary ? 1 : 0}${p.edgeFalloff ? 1 : 0}${blend ? 1 : 0}`;
             if (!slot.lastKey || (!resizing && (sizeChanged || key !== slot.lastKey))) {
               const url = getMap(key, {
                 halfW: genW / 2,
@@ -832,6 +838,7 @@ function Glass({
                 size: p.mapSize,
                 sdfBoundary: p.sdfBoundary,
                 edgeFalloff: p.edgeFalloff,
+                alphaBlend: blend,
               });
               if (preload(url)) {
                 slot.feImage?.setAttribute("href", url);
@@ -845,10 +852,11 @@ function Glass({
             const tintFade = 1 - 0.85 * tintEff;
             const matrix = axisMatrix(
               p.kx * ov.mul * tintFade,
-              p.ky * ov.mul * tintFade
+              p.ky * ov.mul * tintFade,
+              ov.mul > 0 ? 1 : 0
             );
-            if (slot.lastMatrix !== matrix) {
-              slot.feScale?.setAttribute("values", matrix);
+            if (slot.feScale && slot.lastMatrix !== matrix) {
+              slot.feScale.setAttribute("values", matrix);
               slot.lastMatrix = matrix;
               rectChanged = true;
             }
@@ -1285,7 +1293,15 @@ function Glass({
                   operator="out"
                   result="holedSG"
                 />
-                <feComposite in="lensClipped" in2="holedSG" operator="over" />
+                <feComposite
+                  in="lensClipped"
+                  in2="holedSG"
+                  k1="0"
+                  k2="1"
+                  k3="1"
+                  k4="0"
+                  operator="arithmetic"
+                />
               </>
             )}
           </filter>
