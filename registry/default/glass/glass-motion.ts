@@ -151,6 +151,7 @@ interface SpringOptions {
   damping: number;
   restDelta?: number;
   restSpeed?: number;
+  onSettle?: () => void;
 }
 
 class SpringDriver {
@@ -200,6 +201,7 @@ class SpringDriver {
         this.vel = 0;
         this.value.setCancel(null);
         this.value.set(target, now);
+        this.options.onSettle?.();
         return;
       }
       this.raf = requestAnimationFrame(step);
