@@ -1,6 +1,6 @@
 "use client";
 
-import { Glass, isSafariBrowser } from "@/components/ui/glass";
+import { Glass, isSafariBrowser, useHydrated } from "@/components/ui/glass";
 import {
   cubicBezier,
   glassEase,
@@ -63,6 +63,7 @@ function resolveGlass(config: LiquidGlassConfig): ResolvedGlass {
 
 const DOCK_W = 392;
 const DOCK_H = 84;
+const CAP_SCALE = 2;
 const BOTTOM_INSET = 18;
 const PAD_X = 10;
 const PAD_Y = 9;
@@ -152,6 +153,7 @@ function GlassDock({
   value,
 }: GlassDockProps) {
   const safari = isSafariBrowser();
+  const renderSafari = useHydrated() && safari;
   const resolved = resolveGlass(glass ?? DEFAULT_LIQUID_GLASS);
   const accent = accentColor ?? ACCENT;
   const idle = idleColor ?? IDLE;
@@ -176,6 +178,18 @@ function GlassDock({
   const barGlassRef = useRef<HTMLDivElement | null>(null);
   const lensMarkerRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
+
+  const appWrapRef = useRef<HTMLDivElement | null>(null);
+  const barWrapRef = useRef<HTMLDivElement | null>(null);
+  const barCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fullCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scrollElRef = useRef<HTMLElement | null>(null);
+  const capturedRef = useRef(false);
+  const captureWidthRef = useRef(0);
+  const recaptureTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const dockPos = useRef({ x: 0, y: 0 });
 
   const cx = useRef(new MotionValue(itemCenter(activeIndex)));
   const lift = useRef(new MotionValue(0));
@@ -212,8 +226,7 @@ function GlassDock({
     const root = rootRef.current;
     const box = barBoxRef.current;
     const mark = barMarkerRef.current;
-    const barGlass = barGlassRef.current;
-    if (!(root && box && mark && barGlass)) {
+    if (!(root && box && mark)) {
       return;
     }
     const base = root.getBoundingClientRect();
@@ -225,24 +238,23 @@ function GlassDock({
     mark.style.width = `${r.width}px`;
     mark.style.height = `${r.height}px`;
     mark.style.borderRadius = `${BAR_RADIUS}px`;
-    barGlass.style.left = `${bx}px`;
-    barGlass.style.top = `${by}px`;
-    barGlass.style.width = `${r.width - BAR_GLASS_TRIM}px`;
-    barGlass.style.height = `${r.height}px`;
-    barGlass.style.borderRadius = `${BAR_RADIUS}px`;
+    const barGlass = barGlassRef.current;
+    if (barGlass) {
+      barGlass.style.left = `${bx}px`;
+      barGlass.style.top = `${by}px`;
+      barGlass.style.width = `${r.width - BAR_GLASS_TRIM}px`;
+      barGlass.style.height = `${r.height}px`;
+      barGlass.style.borderRadius = `${BAR_RADIUS}px`;
+    }
   }, []);
 
   const apply = useCallback(() => {
     frame.current = 0;
     placeStatic();
-    const root = rootRef.current;
-    const box = barBoxRef.current;
     const lens = lensMarkerRef.current;
-    if (!(root && box && lens)) {
+    if (!lens) {
       return;
     }
-    const base = root.getBoundingClientRect();
-    const r = box.getBoundingClientRect();
     const cxNow = cx.current.get();
     if (
       liftPending.current &&
@@ -254,8 +266,8 @@ function GlassDock({
     const grow = 1 + l * LENS_GROW;
     const lensW = LENS_W * grow;
     const lensH = LENS_H * grow;
-    lens.style.left = `${r.left - base.left + cxNow - lensW / 2}px`;
-    lens.style.top = `${r.top - base.top + (DOCK_H - lensH) / 2}px`;
+    lens.style.left = `${cxNow - lensW / 2}px`;
+    lens.style.top = `${(DOCK_H - lensH) / 2}px`;
     lens.style.width = `${lensW}px`;
     lens.style.height = `${lensH}px`;
     lens.style.borderRadius = `${lensH / 2}px`;
@@ -267,7 +279,7 @@ function GlassDock({
       pill.style.top = `${(DOCK_H - PILL_H) / 2}px`;
       pill.style.opacity = dropping.current ? "1" : `${1 - l}`;
     }
-  }, [placeStatic, liftDown]);
+  }, [liftDown, placeStatic]);
 
   const schedule = useCallback(() => {
     if (frame.current === 0) {
@@ -292,6 +304,89 @@ function GlassDock({
     driver.current?.start();
   }, [apply]);
 
+  const redrawBar = useCallback(() => {
+    const full = fullCanvasRef.current;
+    const bar = barCanvasRef.current;
+    const root = rootRef.current;
+    const scrollEl = scrollElRef.current;
+    if (!(full && bar && root && scrollEl)) {
+      return;
+    }
+    if (bar.width !== DOCK_W * CAP_SCALE) {
+      bar.width = DOCK_W * CAP_SCALE;
+      bar.height = DOCK_H * CAP_SCALE;
+    }
+    const ctx = bar.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const sRect = scrollEl.getBoundingClientRect();
+    const srcX =
+      (dockPos.current.x - (sRect.left - rootRect.left) + scrollEl.scrollLeft) *
+      CAP_SCALE;
+    const srcY =
+      (dockPos.current.y - (sRect.top - rootRect.top) + scrollEl.scrollTop) *
+      CAP_SCALE;
+    ctx.clearRect(0, 0, bar.width, bar.height);
+    ctx.drawImage(
+      full,
+      srcX,
+      srcY,
+      DOCK_W * CAP_SCALE,
+      DOCK_H * CAP_SCALE,
+      0,
+      0,
+      bar.width,
+      bar.height
+    );
+  }, []);
+
+  const captureApp = useCallback(() => {
+    const wrap = appWrapRef.current;
+    if (!(renderSafari && wrap) || capturedRef.current) {
+      return;
+    }
+    captureWidthRef.current = wrap.clientWidth;
+    let scrollEl: HTMLElement = wrap;
+    for (const el of wrap.querySelectorAll<HTMLElement>("*")) {
+      const oy = getComputedStyle(el).overflowY;
+      if (
+        (oy === "auto" || oy === "scroll") &&
+        el.scrollHeight > el.clientHeight + 4
+      ) {
+        scrollEl = el;
+        break;
+      }
+    }
+    scrollElRef.current = scrollEl;
+    capturedRef.current = true;
+    requestAnimationFrame(() => {
+      const fullHeight = scrollEl.scrollHeight;
+      import("html2canvas-pro")
+        .then(({ default: html2canvas }) =>
+          html2canvas(scrollEl, {
+            scale: CAP_SCALE,
+            backgroundColor: null,
+            logging: false,
+            height: fullHeight,
+            windowHeight: fullHeight,
+            onclone: (_doc, clone) => {
+              clone.style.overflow = "visible";
+              clone.style.height = `${fullHeight}px`;
+            },
+          })
+        )
+        .then((canvas) => {
+          fullCanvasRef.current = canvas;
+          redrawBar();
+        })
+        .catch(() => {
+          capturedRef.current = false;
+        });
+    });
+  }, [redrawBar, renderSafari]);
+
   const measure = useCallback(() => {
     const root = rootRef.current;
     if (!root) {
@@ -308,37 +403,58 @@ function GlassDock({
         0,
         Math.max(0, r.height - DOCK_H)
       );
-      for (const el of [contentRef.current, overlayRef.current]) {
+      dockPos.current = { x, y };
+      for (const el of [
+        contentRef.current,
+        overlayRef.current,
+        barWrapRef.current,
+      ]) {
         if (el) {
           el.style.left = `${x}px`;
           el.style.top = `${y}px`;
         }
       }
+      redrawBar();
     }
     apply();
-  }, [apply, align]);
+  }, [apply, align, redrawBar]);
 
   useEffect(() => {
     const off = cx.current.on(schedule);
     const offLift = lift.current.on(schedule);
     cx.current.jump(itemCenter(activeIndexRef.current));
+    initialized.current = false;
     measure();
+    captureApp();
     const root = rootRef.current;
+    const onScroll = () => redrawBar();
     const resize = new ResizeObserver(() => {
       initialized.current = false;
       measure();
+      if (renderSafari && root && root.clientWidth !== captureWidthRef.current) {
+        capturedRef.current = false;
+        if (recaptureTimerRef.current !== undefined) {
+          clearTimeout(recaptureTimerRef.current);
+        }
+        recaptureTimerRef.current = setTimeout(captureApp, 200);
+      }
     });
     if (root) {
       resize.observe(root);
+      root.addEventListener("scroll", onScroll, true);
     }
     return () => {
       off();
       offLift();
       resize.disconnect();
+      root?.removeEventListener("scroll", onScroll, true);
+      if (recaptureTimerRef.current !== undefined) {
+        clearTimeout(recaptureTimerRef.current);
+      }
       cancelAnimationFrame(frame.current);
       driver.current?.stop();
     };
-  }, [measure, schedule]);
+  }, [captureApp, measure, redrawBar, renderSafari, schedule]);
 
   const select = useCallback(
     (index: number) => {
@@ -481,78 +597,137 @@ function GlassDock({
     );
   });
 
+  const dark =
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+  const barTintRGB = tintColor ?? (dark ? "58,58,62" : "255,255,255");
+  const barTintEff = 0.5 * resolved.tint;
+  const barFrostBlur = barTintEff * (tintBlur ?? 12);
+  const barFrostFilter =
+    barFrostBlur > 0.05
+      ? `blur(${barFrostBlur}px) saturate(${1 + 0.5 * barTintEff})`
+      : "none";
+  const barFrostBg =
+    barTintEff > 0.001
+      ? `rgba(${barTintRGB},${Math.round(barTintEff * 700) / 1000})`
+      : "transparent";
+
   return (
     <div
       className={cn("relative overflow-hidden", className)}
       onDragStart={(event) => event.preventDefault()}
       ref={rootRef}
     >
-      <Glass
-        chroma={0.12}
-        className="pointer-events-none absolute inset-0"
-        depth={12}
-        domeDepth={12}
-        edgeHighlight={0}
-        glow={0}
-        lens={
-          <>
-            <div
-              className="absolute"
-              data-glass-edge-highlight={0}
-              data-glass-glow={0}
-              data-glass-lens
-              data-glass-mul={0}
-              ref={barMarkerRef}
-            />
-            <div
-              className="absolute"
-              data-glass-edge-highlight={0}
-              data-glass-glow={0}
-              data-glass-lens
-              data-glass-mul={BAR_GLASS_MUL}
-              data-glass-tint={0}
-              ref={barGlassRef}
-            />
-          </>
-        }
-        resolution={1}
-        scaleX={resolved.scale}
-        scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
-        tint={resolved.tint}
-        tintBlur={tintBlur ?? 12}
-        tintColor={tintColor}
-      >
-        {children}
-      </Glass>
-      <Glass
-        chroma={0.5}
-        className="pointer-events-none absolute inset-0"
-        depth={14}
-        domeDepth={20}
-        edgeHighlight={resolved.edgeHighlight}
-        glow={resolved.glow}
-        lens={
+      {renderSafari ? (
+        <>
+          <div className="absolute inset-0" ref={appWrapRef}>
+            {children}
+          </div>
           <div
-            className="absolute"
-            data-glass-blend="1"
-            data-glass-dome-depth={20}
-            data-glass-lens
-            data-glass-mul={0}
-            ref={lensMarkerRef}
-          />
-        }
-        resolution={1}
-        scaleX={resolved.scale}
-        scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
-        tint={0}
-        tintBlur={4}
-      >
-        <div className="absolute inset-0 overflow-hidden">
-          <div
-            className="absolute"
-            ref={contentRef}
+            className="pointer-events-none absolute"
+            ref={barWrapRef}
             style={{ width: DOCK_W, height: DOCK_H }}
           >
+            <Glass
+              chroma={0.12}
+              className="absolute inset-0"
+              depth={12}
+              domeDepth={12}
+              edgeHighlight={0}
+              glow={0}
+              lens={
+                <div
+                  className="absolute inset-0"
+                  data-glass-lens
+                  style={{ borderRadius: BAR_RADIUS }}
+                />
+              }
+              reveal
+              scaleX={resolved.scale}
+              scaleY={resolved.scale * 1.1}
+              tint={0}
+            >
+              <canvas
+                className="absolute inset-0 h-full w-full"
+                ref={barCanvasRef}
+              />
+            </Glass>
+            <div
+              className="absolute inset-0"
+              style={{
+                borderRadius: BAR_RADIUS,
+                background: barFrostBg,
+                backdropFilter: barFrostFilter,
+                WebkitBackdropFilter: barFrostFilter,
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <Glass
+          chroma={0.12}
+          className="pointer-events-none absolute inset-0"
+          depth={12}
+          domeDepth={12}
+          edgeHighlight={0}
+          glow={0}
+          lens={
+            <>
+              <div
+                className="absolute"
+                data-glass-edge-highlight={0}
+                data-glass-glow={0}
+                data-glass-lens
+                data-glass-mul={0}
+                ref={barMarkerRef}
+              />
+              <div
+                className="absolute"
+                data-glass-edge-highlight={0}
+                data-glass-glow={0}
+                data-glass-lens
+                data-glass-mul={BAR_GLASS_MUL}
+                data-glass-tint={0}
+                ref={barGlassRef}
+              />
+            </>
+          }
+          scaleX={resolved.scale}
+          scaleY={resolved.scale}
+          tint={resolved.tint}
+          tintBlur={tintBlur ?? 12}
+          tintColor={tintColor}
+        >
+          {children}
+        </Glass>
+      )}
+      <div
+        className="pointer-events-none absolute"
+        ref={contentRef}
+        style={{ width: DOCK_W, height: DOCK_H }}
+      >
+        <Glass
+          chroma={0.5}
+          className="absolute inset-0"
+          depth={14}
+          domeDepth={20}
+          edgeHighlight={resolved.edgeHighlight}
+          glow={resolved.glow}
+          lens={
+            <div
+              className="absolute"
+              data-glass-dome-depth={20}
+              data-glass-lens
+              data-glass-mul={0}
+              ref={lensMarkerRef}
+            />
+          }
+          scaleX={resolved.scale}
+          scaleY={safari ? resolved.scale * 1.1 : resolved.scale}
+          tint={0}
+          tintBlur={4}
+        >
+          <div className="absolute inset-0 overflow-hidden">
             <div
               className="pointer-events-none absolute"
               ref={pillRef}
@@ -568,8 +743,8 @@ function GlassDock({
               {iconNodes}
             </div>
           </div>
-        </div>
-      </Glass>
+        </Glass>
+      </div>
       <div
         aria-label={ariaLabel}
         className="absolute touch-none select-none"
